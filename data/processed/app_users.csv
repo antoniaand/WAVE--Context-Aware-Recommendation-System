@@ -1,0 +1,111 @@
+user_id,gender,age_range,attendance_freq,preferred_event_types
+1,Female,25-34,Săptămânal / Weekly,Concert|Festival
+2,Male,55-64,1–2 ori pe an / 1–2 times per year,Conference|Theatre
+3,Non-binary,35-44,Lunar / Monthly,Concert|Exhibition|Theatre
+4,Prefer not to say,55-64,Săptămânal / Weekly,Concert|Exhibition|Sports
+5,Female,18-24,Lunar / Monthly,Concert
+6,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Sports
+7,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival
+8,Male,45-54,Lunar / Monthly,Concert|Theatre
+9,Female,45-54,1–2 ori pe an / 1–2 times per year,Concert|Festival|Theatre
+10,Female,45-54,Lunar / Monthly,Concert|Theatre
+11,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports
+12,Male,18-24,1–2 ori pe an / 1–2 times per year,Conference|Sports|Theatre
+13,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Theatre
+14,Female,45-54,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports
+15,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival
+16,Male,55-64,1–2 ori pe an / 1–2 times per year,Concert|Conference|Festival|Sports|Theatre
+17,Female,18-24,1–2 ori pe an / 1–2 times per year,Festival
+18,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition
+19,Female,18-24,Lunar / Monthly,Concert|Festival|Sports|Theatre
+20,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+21,Female,18-24,Săptămânal / Weekly,Concert|Exhibition|Festival|Sports|Theatre
+22,Male,18-24,1–2 ori pe an / 1–2 times per year,Sports
+23,Male,45-54,1–2 ori pe an / 1–2 times per year,Concert
+24,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert
+25,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Conference|Exhibition|Theatre
+26,Male,18-24,1–2 ori pe an / 1–2 times per year,Festival|Sports
+27,Female,18-24,Lunar / Monthly,Exhibition|Festival|Theatre
+28,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Conference|Festival|Theatre
+29,Female,18-24,Lunar / Monthly,Concert|Festival
+30,Female,18-24,1–2 ori pe an / 1–2 times per year,Festival|Theatre
+31,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Conference|Exhibition
+32,Female,18-24,Lunar / Monthly,Concert|Conference|Theatre
+33,Male,18-24,1–2 ori pe an / 1–2 times per year,Festival|Sports
+34,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Theatre
+35,Male,18-24,Lunar / Monthly,Concert|Exhibition|Festival
+36,Female,<18,1–2 ori pe an / 1–2 times per year,Sports|Theatre
+37,Female,25-34,Lunar / Monthly,Concert|Conference|Exhibition|Festival|Theatre
+38,Male,35-44,Lunar / Monthly,Concert|Exhibition|Festival|Sports
+39,Female,25-34,1–2 ori pe an / 1–2 times per year,Conference|Festival|Theatre
+40,Male,25-34,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports
+41,Male,25-34,1–2 ori pe an / 1–2 times per year,Sports|Theatre
+42,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Theatre
+43,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+44,Male,55-64,1–2 ori pe an / 1–2 times per year,Concert|Theatre
+45,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Theatre
+46,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert
+47,Female,18-24,Lunar / Monthly,Concert|Festival|Sports|Theatre
+48,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Theatre
+49,Female,18-24,Lunar / Monthly,Concert|Exhibition|Theatre
+50,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Sports
+51,Female,18-24,Niciodată / Never,Festival
+52,Male,18-24,Lunar / Monthly,Concert|Festival|Theatre
+53,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival
+54,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert
+55,Male,18-24,Lunar / Monthly,Concert|Conference|Exhibition|Festival
+56,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports
+57,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition
+58,Non-binary,18-24,Lunar / Monthly,Concert|Exhibition|Theatre
+59,Female,18-24,1–2 ori pe an / 1–2 times per year,Exhibition|Theatre
+60,Female,18-24,Lunar / Monthly,Concert|Exhibition|Festival|Theatre
+61,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition
+62,Male,18-24,Lunar / Monthly,Concert|Exhibition|Festival|Sports|Theatre
+63,Female,18-24,1–2 ori pe an / 1–2 times per year,Festival
+64,Female,18-24,Lunar / Monthly,Concert|Conference|Exhibition|Festival|Theatre
+65,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports
+66,Female,18-24,Lunar / Monthly,Concert|Theatre
+67,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+68,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports|Theatre
+69,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival
+70,Female,18-24,Lunar / Monthly,Festival|Sports
+71,,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+72,Female,18-24,Lunar / Monthly,Concert|Festival
+73,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+74,Female,18-24,1–2 ori pe an / 1–2 times per year,Conference|Theatre
+75,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert
+76,Non-binary,55-64,Săptămânal / Weekly,Concert|Conference|Exhibition|Festival|Sports|Theatre
+77,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Conference|Exhibition|Festival
+78,Female,18-24,Lunar / Monthly,Concert|Conference|Exhibition|Theatre
+79,Prefer not to say,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Theatre
+80,Female,18-24,Lunar / Monthly,Concert|Conference|Theatre
+81,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Conference|Exhibition|Festival|Sports|Theatre
+82,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Theatre
+83,Female,18-24,1–2 ori pe an / 1–2 times per year,Theatre
+84,Male,18-24,1–2 ori pe an / 1–2 times per year,Festival|Sports
+85,Female,18-24,1–2 ori pe an / 1–2 times per year,Theatre
+86,Female,18-24,Lunar / Monthly,Concert|Festival|Theatre
+87,Female,18-24,Lunar / Monthly,Concert|Conference|Exhibition|Theatre
+88,Female,18-24,Lunar / Monthly,Concert|Conference|Exhibition|Festival|Sports|Theatre
+89,Female,18-24,Lunar / Monthly,Concert|Exhibition|Theatre
+90,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Conference|Exhibition|Festival|Sports
+91,Female,18-24,Lunar / Monthly,Concert|Festival
+92,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+93,Female,18-24,Lunar / Monthly,Conference|Exhibition|Theatre
+94,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert
+95,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Sports|Theatre
+96,Male,18-24,1–2 ori pe an / 1–2 times per year,Conference|Festival
+97,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Theatre
+98,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival|Theatre
+99,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+100,Male,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival
+101,Female,18-24,1–2 ori pe an / 1–2 times per year,Conference|Festival|Theatre
+102,Male,18-24,Lunar / Monthly,Concert|Sports|Theatre
+103,Male,35-44,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Festival|Theatre
+104,Male,45-54,Lunar / Monthly,Concert|Exhibition|Festival|Theatre
+105,Male,45-54,1–2 ori pe an / 1–2 times per year,Conference|Exhibition|Festival|Theatre
+106,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Theatre
+107,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Exhibition|Theatre
+108,Female,18-24,Lunar / Monthly,Concert|Sports|Theatre
+109,Male,<18,Lunar / Monthly,Concert|Exhibition|Theatre
+110,Female,18-24,1–2 ori pe an / 1–2 times per year,Concert|Festival
