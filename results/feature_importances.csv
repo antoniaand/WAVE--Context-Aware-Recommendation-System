@@ -1,9 +1,25 @@
-feature,importance
-weather_precip_mm,0.45473792003723623
-weather_temp_C,0.27049651783565465
-event_month,0.057041230618946726
-season,0.05380976089591811
-location_enc,0.05173035984634261
-event_name_enc,0.04882701486887695
-event_hour,0.038720966886281516
-event_weekday,0.024636229010743218
+model,feature,importance
+LGBM Contextual,weather_precip_mm,4731.0
+LGBM Contextual,weather_temp_C,4518.0
+LGBM Contextual,location_enc,2484.0
+LGBM Contextual,event_name_enc,2422.0
+LGBM Contextual,event_hour,2056.0
+LGBM Contextual,event_weekday,1119.0
+LGBM Contextual,event_month,1064.0
+LGBM Contextual,season,206.0
+RF Contextual,weather_precip_mm,0.45473792003723623
+RF Contextual,weather_temp_C,0.27049651783565465
+RF Contextual,event_month,0.057041230618946726
+RF Contextual,season,0.05380976089591811
+RF Contextual,location_enc,0.05173035984634261
+RF Contextual,event_name_enc,0.04882701486887695
+RF Contextual,event_hour,0.038720966886281516
+RF Contextual,event_weekday,0.024636229010743218
+XGB Contextual,season,0.23854568600654602
+XGB Contextual,weather_precip_mm,0.23826096951961517
+XGB Contextual,weather_temp_C,0.20678994059562683
+XGB Contextual,event_month,0.10692060738801956
+XGB Contextual,location_enc,0.05578272417187691
+XGB Contextual,event_hour,0.052783310413360596
+XGB Contextual,event_name_enc,0.052265726029872894
+XGB Contextual,event_weekday,0.04865109175443649

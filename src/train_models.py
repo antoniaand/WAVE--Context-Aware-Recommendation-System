@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-WAVE – Train and evaluate Baseline vs Contextual (weather-aware) RandomForest models.
+WAVE – Train and evaluate four models:
+  1. RF Baseline      – Random Forest, no weather features
+  2. RF Contextual    – Random Forest, with weather features
+  3. LGBM Contextual  – LightGBM, with weather features
+  4. XGB Contextual   – XGBoost, with weather features
 
 Usage:
     python src/train_models.py
@@ -86,6 +90,34 @@ def build_rf():
     )
 
 
+def build_lgbm():
+    """LightGBM – leaf-wise gradient boosting, efficient on large tabular data."""
+    return LGBMClassifier(
+        n_estimators=300,
+        learning_rate=0.05,
+        num_leaves=63,
+        max_depth=-1,
+        min_child_samples=20,
+        random_state=42,
+        n_jobs=-1,
+        verbose=-1,
+    )
+
+
+def build_xgb():
+    """XGBoost – regularized gradient boosting, level-wise tree growth."""
+    return XGBClassifier(
+        n_estimators=300,
+        learning_rate=0.05,
+        max_depth=6,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        eval_metric="logloss",
+        random_state=42,
+        n_jobs=-1,
+    )
+
+
 def train(model, X_train, y_train, label: str):
     print(f"Training {label} ({X_train.shape[1]} features)…")
     model.fit(X_train, y_train)
@@ -155,21 +187,29 @@ def main():
     # Feature sets
     X_tr_base, X_te_base, X_tr_ctx, X_te_ctx, base_cols, ctx_cols = get_feature_sets(X_train, X_test)
 
-    # Train
-    baseline_model = train(build_rf(), X_tr_base, y_train, "Baseline RF")
-    contextual_model = train(build_rf(), X_tr_ctx, y_train, "Contextual RF")
+    # Train all four models
+    baseline_model  = train(build_rf(),   X_tr_base, y_train, "Baseline RF")
+    rf_ctx_model    = train(build_rf(),   X_tr_ctx,  y_train, "Contextual RF")
+    lgbm_model      = train(build_lgbm(), X_tr_ctx,  y_train, "Contextual LGBM")
+    xgb_model       = train(build_xgb(),  X_tr_ctx,  y_train, "Contextual XGBoost")
 
-    # Evaluate
-    baseline_metrics = evaluate(baseline_model, X_te_base, y_test, "Baseline (no weather)")
-    contextual_metrics = evaluate(contextual_model, X_te_ctx, y_test, "Contextual (weather)")
-    print_comparison([baseline_metrics, contextual_metrics])
+    # Evaluate all four models
+    baseline_metrics = evaluate(baseline_model, X_te_base, y_test, "RF Baseline (no weather)")
+    rf_ctx_metrics   = evaluate(rf_ctx_model,   X_te_ctx,  y_test, "RF Contextual")
+    lgbm_metrics     = evaluate(lgbm_model,     X_te_ctx,  y_test, "LGBM Contextual")
+    xgb_metrics      = evaluate(xgb_model,      X_te_ctx,  y_test, "XGB Contextual")
+    print_comparison([baseline_metrics, rf_ctx_metrics, lgbm_metrics, xgb_metrics])
 
-    # Feature importances for contextual model (key thesis evidence)
-    print_feature_importances(contextual_model, ctx_cols, "Contextual RF", top_n=5)
+    # Feature importances for all contextual models (key thesis evidence)
+    print_feature_importances(rf_ctx_model, ctx_cols, "RF Contextual",   top_n=5)
+    print_feature_importances(lgbm_model,   ctx_cols, "LGBM Contextual", top_n=5)
+    print_feature_importances(xgb_model,    ctx_cols, "XGB Contextual",  top_n=5)
 
-    # Save
+    # Save all four models
     save_model(baseline_model, "baseline_rf.joblib")
-    save_model(contextual_model, "contextual_rf.joblib")
+    save_model(rf_ctx_model,   "contextual_rf.joblib")
+    save_model(lgbm_model,     "lgbm_contextual.joblib")
+    save_model(xgb_model,      "xgb_contextual.joblib")
 
 
 if __name__ == "__main__":
