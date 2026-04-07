@@ -40,7 +40,10 @@ providing strong empirical evidence for the research hypothesis.
 | 5    | location_enc        | 0.0517     |
 
 ---
+## Note on Weather Data
+The weather features (**weather_temp_C**, **weather_precip_mm**) used in this project are synthetically generated and do not represent real meteorological measurements. They were produced programmatically in **src/generate_weather.py** using season- and month-correlated statistical distributions to simulate a temperate climate. This synthetic approach was adopted deliberately to isolate and demonstrate the methodological contribution of integrating weather context into attendance prediction, independent of real-time data availability.
 
+---
 ## Repository Layout
 
 ```
