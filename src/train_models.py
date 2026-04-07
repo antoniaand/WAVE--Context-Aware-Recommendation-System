@@ -11,6 +11,9 @@ import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import StandardScaler
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier   
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED_DIR = ROOT / "data" / "processed"
@@ -42,6 +45,11 @@ def load_and_split(path: Path):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.20, random_state=42, stratify=y
     )
+    scaler = StandardScaler()
+    X_train = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns)
+    X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
+    #fit just for train, bc fit= calculate mean and std for train, and you want to use those ones for test
+    joblib.dump(scaler, MODELS_DIR / "scaler.joblib")
     print(f"Train size: {len(X_train):,}  |  Test size: {len(X_test):,}")
     print(f"Class distribution (train) – 0: {(y_train==0).sum():,}  1: {(y_train==1).sum():,}\n")
     return X_train, X_test, y_train, y_test

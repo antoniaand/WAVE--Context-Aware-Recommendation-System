@@ -24,7 +24,7 @@ from sklearn.metrics import (
     average_precision_score,
 )
 
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 PROCESSED_DIR = ROOT / "data" / "processed"
 MODELS_DIR = ROOT / "models"
 RESULTS_DIR = ROOT / "results"

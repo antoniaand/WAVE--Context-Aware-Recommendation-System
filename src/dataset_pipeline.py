@@ -70,9 +70,6 @@ def process_training_data(filepath: Path) -> pd.DataFrame:
     numeric_cols = ["event_hour", "event_weekday", "event_month", "season", "event_name_enc", "location_enc"]
     df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
 
-    # --- Standardization ---
-    scaler = StandardScaler()
-    df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
 
     # --- Output columns ---
     out_cols = [
@@ -89,51 +86,68 @@ def process_training_data(filepath: Path) -> pd.DataFrame:
     return out
 
 
-def process_real_users(filepath: Path) -> pd.DataFrame:
+def process_real_users(filepath) -> pd.DataFrame:
     """
-    Process survey users for Streamlit app.
-    Output: app_users.csv (no merge with training data).
+    Process survey users for Streamlit app & SQLite Database.
+    Output: app_users.csv containing clean weather tolerances and mapped event types.
     """
     df = pd.read_csv(filepath, dtype=str, engine="python")
 
-    # --- Data Cleaning ---
+    # 1. Pastram doar randurile valide
     df = df.dropna(how="all")
-    df = df.dropna(subset=[df.columns[0]])  # keep rows with timestamp/consent
+    df = df.dropna(subset=[df.columns[0]])  
 
-    # --- Map column names (fuzzy) ---
-    cols_lower = {c.lower(): c for c in df.columns}
-    gender_col = next((cols_lower[k] for k in cols_lower if "gender" in k), None)
-    age_col = next((cols_lower[k] for k in cols_lower if "age" in k and "range" in k), None)
-    freq_col = next((cols_lower[k] for k in cols_lower if "often" in k or "des participi" in k), None)
-    pref_col = next((cols_lower[k] for k in cols_lower if "types of events" in k or "tipuri" in k), None)
+    # 2. Redenumim TOATE coloanele exact cum aveai in scriptul vechi
+    df.columns = [
+        "timestamp", "consent", "gender", "age_range", "attendance_freq",
+        "event_types", "indoor_outdoor", "top_event", "rain_avoid",
+        "cold_tolerance", "heat_sensitivity", "wind_sensitivity",
+        "override_weather", "scenario_concert", "scenario_festival",
+        "scenario_sports", "scenario_theatre", "scenario_conference"
+    ]
 
-    # --- Standardize preferred event types to match training categories ---
+    # 3. Adaugam ID-ul de utilizator
+    df["user_id"] = range(1, len(df) + 1)
+
+    # 4. Magia din prima functie: Mapam preferintele de evenimente
     def map_preferences(val):
         if pd.isna(val):
             return ""
         s = str(val)
         mapped = []
+        # Asigura-te ca EVENT_TYPE_MAP este definit mai sus in scriptul tau!
         for survey_key, canonical in EVENT_TYPE_MAP.items():
             if survey_key in s:
                 mapped.append(canonical)
         return "|".join(sorted(set(mapped))) if mapped else ""
 
-    df["user_id"] = range(1, len(df) + 1)
-    df["gender"] = df[gender_col] if gender_col else ""
-    df["age_range"] = df[age_col] if age_col else ""
-    df["attendance_freq"] = df[freq_col] if freq_col else ""
-    df["preferred_event_types"] = df[pref_col].apply(map_preferences) if pref_col else ""
+    df["preferred_event_types"] = df["event_types"].apply(map_preferences)
 
-    # --- Drop nulls in key fields ---
-    df = df.dropna(subset=["gender", "age_range"], how="all")
+    # 5. Magia din a doua functie: Mapam scenariile in cifre (0-3)
+    mapping = {
+        "Aș participa / I would attend": 3,
+        "Probabil aș participa / Probably": 2,
+        "Probabil nu / Probably not": 1,
+        "Nu aș participa / Would not attend": 0
+    }
+    
+    scenario_columns = [
+        "scenario_concert", "scenario_festival", "scenario_sports",
+        "scenario_theatre", "scenario_conference"
+    ]
+    for col in scenario_columns:
+        df[col] = df[col].map(mapping)
 
-    out_cols = ["user_id", "gender", "age_range", "attendance_freq", "preferred_event_types"]
-    out = df[[c for c in out_cols if c in df.columns]].copy()
+    # 6. Curatam si salvam
+    df = df.drop(columns=["timestamp", "consent"])
+    df = df.fillna("") # Evitam erorile de JSON
 
+    # Salvam fisierul final (pastram numele app_users.csv ca sa nu stricam restul codului tau)
     out_path = PROCESSED_DIR / "app_users.csv"
-    out.to_csv(out_path, index=False)
-    print(f"Saved app_users.csv: {len(out)} rows")
-    return out
+    df.to_csv(out_path, index=False)
+    print(f"Saved app_users.csv: {len(df)} rows with full weather profiles!")
+    
+    return df
 
 
 def main():
@@ -149,7 +163,6 @@ def main():
         process_real_users(users_path)
     else:
         print(f"Missing: {users_path}")
-
 
 if __name__ == "__main__":
     main()
