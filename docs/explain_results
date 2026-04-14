@@ -1,0 +1,9 @@
+Îmbunătățirea F1-Score-ului de la 0.9127 la 0.9562 prin 
+integrarea variabilelor contextuale (temperatură, precipitații) 
+și a profilului de toleranță individual  reprezintă o validare a 
+ipotezei conform căreia sistemele de recomandare clasice ignoră factori
+critici de decizie în mediul outdoor. Conform literaturii de specialitate
+(Ricci et al., 2011), o astfel de creștere într-un mediu cu 
+date structurate confirmă eficacitatea algoritmilor de
+Gradient Boosting în capturarea interacțiunilor non-liniare 
+dintre utilizator și mediu.
