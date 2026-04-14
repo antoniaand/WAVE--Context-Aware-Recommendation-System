@@ -2,80 +2,46 @@
 """
 Evaluate and produce visuals for all four WAVE models.
 
-Outputs saved to project_root/results/:
- - confusion_matrix_comparison.png  (2x2 grid, one panel per model)
- - roc_comparison.png               (all 4 ROC curves on one plot)
- - feature_importances.csv          (importances for all 3 contextual models)
+Outputs (project_root/results/):
+ - confusion_matrix_comparison.png     — 2x2 confusion matrices (global test)
+ - roc_comparison.png                  — ROC curves (global test)
+ - feature_importances.csv             — SKLearn split importances (contextual)
+ - f1_extreme_weather_slice.png        — F1 bar chart, outdoor cold/wet slice
+ - xgb_subgroup_permutation_importance.png — XGB on slice (permutation importance)
 
-Recreates the exact 80/20 stratified split (random_state=42) so the test
-set is identical to the one used during training.
+Uses the same preprocessing and GroupShuffleSplit as train_models.py (via eval_common).
 """
 from pathlib import Path
+
 import joblib
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score
+import numpy as np
+import pandas as pd
+from sklearn.inspection import permutation_importance
+from sklearn.metrics import confusion_matrix, f1_score, roc_auc_score, roc_curve
+
+from eval_common import (
+    MODEL_REGISTRY,
+    WEATHER_COLS_SET,
+    extreme_weather_slice_mask,
+    get_pos_probs,
+    get_X_for_model,
+    load_scaled_test_split,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
-PROCESSED_DIR = ROOT / "data" / "processed"
-MODELS_DIR    = ROOT / "models"
-RESULTS_DIR   = ROOT / "results"
+MODELS_DIR = ROOT / "models"
+RESULTS_DIR = ROOT / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-DROP_COLS   = {"event_id", "event_datetime", "event_name", "location"}
-WEATHER_COLS = {"weather_temp_C", "weather_precip_mm"}
-TARGET = "attended"
-
-# ── Model registry ────────────────────────────────────────────────────────────
-# Each entry: (display label, joblib filename, uses_weather)
-MODEL_REGISTRY = [
-    ("RF Baseline",      "baseline_rf.joblib",     False),
-    ("RF Contextual",    "contextual_rf.joblib",    True),
-    ("LGBM Contextual",  "lgbm_contextual.joblib",  True),
-    ("XGB Contextual",   "xgb_contextual.joblib",   True),
-]
+WEATHER_FEATURE_LABELS = {
+    "weather_temp_C": "Temp (C)",
+    "weather_precip_mm": "Precip (mm)",
+    "weather_wind_speed_kmh": "Wind (km/h)",
+}
 
 
-def load_data():
-    """Recreate the same stratified 80/20 split used during training."""
-    df = pd.read_csv(PROCESSED_DIR / "train_ready.csv")
-    df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
-    y = df[TARGET]
-    X = df.drop(columns=[TARGET])
-    _, X_test, _, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42, stratify=y
-    )
-    scaler = joblib.load(MODELS_DIR / "scaler.joblib")
-    X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
-    return X_test, y_test
-
-
-def get_X_for_model(X_test: pd.DataFrame, uses_weather: bool) -> pd.DataFrame:
-    """Return the correct feature subset depending on whether the model uses weather."""
-    if uses_weather:
-        return X_test
-    return X_test[[c for c in X_test.columns if c not in WEATHER_COLS]]
-
-
-def get_pos_probs(model, X: pd.DataFrame) -> np.ndarray:
-    """Return predicted probabilities for class 1."""
-    if hasattr(model, "predict_proba"):
-        probs_all = model.predict_proba(X)
-        classes = list(getattr(model, "classes_", [0, 1]))
-        pos_idx = classes.index(1) if 1 in classes else 1
-        return probs_all[:, pos_idx]
-    if hasattr(model, "decision_function"):
-        return model.decision_function(X)
-    return model.predict(X).astype(float)
-
-
-def plot_confusion_matrices(models_data: list, y_true: pd.Series, out_path: Path):
-    """
-    2×2 grid of confusion matrices, one per model.
-    models_data: list of (label, y_pred)
-    """
+def plot_confusion_matrices(models_data: list, y_true: pd.Series, out_path: Path, title: str):
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     axes = axes.flatten()
 
@@ -92,23 +58,24 @@ def plot_confusion_matrices(models_data: list, y_true: pd.Series, out_path: Path
         thresh = cm.max() / 2.0 if cm.max() > 0 else 0
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
-                ax.text(j, i, format(int(cm[i, j]), "d"),
-                        ha="center", va="center",
-                        color="white" if cm[i, j] > thresh else "black",
-                        fontsize=11)
+                ax.text(
+                    j,
+                    i,
+                    format(int(cm[i, j]), "d"),
+                    ha="center",
+                    va="center",
+                    color="white" if cm[i, j] > thresh else "black",
+                    fontsize=11,
+                )
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-    fig.suptitle("Confusion Matrix Comparison — All Models", fontsize=14, fontweight="bold")
+    fig.suptitle(title, fontsize=14, fontweight="bold")
     plt.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
 
 
-def plot_roc_curves(roc_data: list, out_path: Path):
-    """
-    All 4 ROC curves on one plot.
-    roc_data: list of (label, y_true, y_probs)
-    """
+def plot_roc_curves(roc_data: list, out_path: Path, title: str):
     plt.figure(figsize=(8, 6))
     for label, y_true, probs in roc_data:
         fpr, tpr, _ = roc_curve(y_true, probs)
@@ -118,7 +85,7 @@ def plot_roc_curves(roc_data: list, out_path: Path):
     plt.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve — All Models")
+    plt.title(title)
     plt.legend(loc="lower right")
     plt.grid(alpha=0.3)
     plt.tight_layout()
@@ -126,12 +93,89 @@ def plot_roc_curves(roc_data: list, out_path: Path):
     plt.close()
 
 
+def plot_f1_extreme_weather(f1_by_model: dict, n_slice: int, out_path: Path):
+    labels = list(f1_by_model.keys())
+    values = [f1_by_model[k] for k in labels]
+    colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52"][: len(labels)]
+
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    x = np.arange(len(labels))
+    bars = ax.bar(x, values, color=colors, edgecolor="black", linewidth=0.6)
+    for bar, v in zip(bars, values):
+        ax.annotate(
+            f"{v:.3f}",
+            xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()),
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            fontsize=10,
+            fontweight="bold",
+        )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=18, ha="right")
+    ax.set_ylim(0, min(1.15, max(values) * 1.15 + 0.05))
+    ax.set_ylabel("Macro F1-Score")
+    ax.set_title(
+        f"Extreme-weather slice (n={n_slice})\n"
+        r"outdoor & (T$<$5°C or precip$>$0.5mm)"
+    )
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+
+
+def plot_xgb_subgroup_permutation(
+    model,
+    X_sub: pd.DataFrame,
+    y_sub: np.ndarray,
+    out_path: Path,
+    title: str,
+    n_repeats: int = 15,
+):
+    """
+    Permutation importance on the subgroup — reflects which features drive
+    XGB predictions on hard outdoor weather rows (including weather channels).
+    """
+    r = permutation_importance(
+        model,
+        X_sub,
+        y_sub,
+        n_repeats=n_repeats,
+        random_state=42,
+        n_jobs=-1,
+        scoring="f1_macro",
+    )
+    names = list(X_sub.columns)
+    order = np.argsort(r.importances_mean)[::-1]
+    top_k = min(18, len(order))
+    order = order[:top_k]
+
+    means = r.importances_mean[order]
+    stds = r.importances_std[order]
+    feat_names = [names[i] for i in order]
+
+    def _lab(n):
+        return WEATHER_FEATURE_LABELS.get(n, n)
+
+    display = [_lab(n) for n in feat_names]
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    y_pos = np.arange(len(display))
+    colors = ["#c44e52" if n in WEATHER_COLS_SET else "#4c72b0" for n in feat_names]
+    ax.barh(y_pos, means, xerr=stds, color=colors, edgecolor="black", linewidth=0.4)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(display, fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlabel("Mean decrease in macro-F1 (permutation)")
+    ax.set_title(title)
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+
+
 def export_feature_importances(models_data: list, feature_names_map: dict, out_csv: Path):
-    """
-    Export feature importances for all contextual models into one CSV.
-    models_data: list of (label, model)
-    feature_names_map: {label: [feature_names]}
-    """
     rows = []
     for label, model in models_data:
         fi = getattr(model, "feature_importances_", None)
@@ -149,12 +193,17 @@ def export_feature_importances(models_data: list, feature_names_map: dict, out_c
 
 
 def main():
-    X_test, y_test = load_data()
+    X_test, y_test, X_test_raw = load_scaled_test_split()
+    slice_mask = extreme_weather_slice_mask(X_test_raw)
+    n_sub = int(slice_mask.sum())
+    y_np = y_test.to_numpy()
+    m = np.asarray(slice_mask, dtype=bool)
 
-    cm_preds   = []  # (label, y_pred)
-    roc_data   = []  # (label, y_true, probs)
-    fi_models  = []  # (label, model) — contextual only
-    fi_names   = {}  # label -> feature name list
+    cm_preds = []
+    roc_data = []
+    fi_models = []
+    fi_names = {}
+    f1_sub = {}
 
     for label, filename, uses_weather in MODEL_REGISTRY:
         model_path = MODELS_DIR / filename
@@ -166,27 +215,67 @@ def main():
         X = get_X_for_model(X_test, uses_weather)
 
         y_pred = model.predict(X)
-        probs  = get_pos_probs(model, X)
+        probs = get_pos_probs(model, X)
 
         cm_preds.append((label, y_pred))
         roc_data.append((label, y_test, probs))
+
+        if n_sub > 0:
+            f1_sub[label] = f1_score(
+                y_np[m], y_pred[m], average="macro", zero_division=0
+            )
 
         if uses_weather:
             fi_models.append((label, model))
             fi_names[label] = list(X.columns)
 
-    # Confusion matrices — 2x2 grid
     cm_out = RESULTS_DIR / "confusion_matrix_comparison.png"
-    plot_confusion_matrices(cm_preds, y_test, cm_out)
-    print(f"Saved confusion matrices: {cm_out}")
+    plot_confusion_matrices(
+        cm_preds,
+        y_test,
+        cm_out,
+        "Confusion Matrix — All Models (global test)",
+    )
+    print(f"Saved: {cm_out}")
 
-    # ROC curves — all 4 on one plot
     roc_out = RESULTS_DIR / "roc_comparison.png"
-    plot_roc_curves(roc_data, roc_out)
-    print(f"Saved ROC comparison: {roc_out}")
+    plot_roc_curves(roc_data, roc_out, "ROC Curve — All Models (global test)")
+    print(f"Saved: {roc_out}")
 
-    # Feature importances — all contextual models
-    export_feature_importances(fi_models, fi_names, RESULTS_DIR / "feature_importances.csv")
+    export_feature_importances(
+        fi_models, fi_names, RESULTS_DIR / "feature_importances.csv"
+    )
+
+    # ----- Subgroup: F1 bar + XGB permutation -----
+    if n_sub == 0:
+        print("Extreme-weather slice empty; skip subgroup figures.")
+        return
+
+    f1_out = RESULTS_DIR / "f1_extreme_weather_slice.png"
+    plot_f1_extreme_weather(f1_sub, n_sub, f1_out)
+    print(f"Saved: {f1_out}")
+    print("\n--- F1 (macro) on extreme-weather slice ---")
+    for k, v in f1_sub.items():
+        print(f"  {k:<18} {v:.4f}")
+
+    xgb_path = MODELS_DIR / "xgb_contextual.joblib"
+    if xgb_path.exists():
+        xgb = joblib.load(xgb_path)
+        X_xgb = get_X_for_model(X_test, True)
+        X_sub = X_xgb.loc[m].reset_index(drop=True)
+        y_sub = y_np[m]
+        perm_out = RESULTS_DIR / "xgb_subgroup_permutation_importance.png"
+        plot_xgb_subgroup_permutation(
+            xgb,
+            X_sub,
+            y_sub,
+            perm_out,
+            title=f"XGB Contextual — permutation importance\n"
+            f"extreme-weather slice (n={n_sub})",
+        )
+        print(f"Saved: {perm_out}")
+    else:
+        print("xgb_contextual.joblib missing; skip permutation plot.")
 
 
 if __name__ == "__main__":
