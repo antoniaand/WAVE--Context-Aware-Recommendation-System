@@ -2,93 +2,151 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3%2B-F7931E?logo=scikitlearn&logoColor=white)
+![LightGBM](https://img.shields.io/badge/LightGBM-brightgreen?logo=data:image/svg+xml;base64,)
+![XGBoost](https://img.shields.io/badge/XGBoost-orange)
 ![License](https://img.shields.io/badge/License-Academic-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 
 **WAVE** (Weather-Aware Venue & Event recommender) is a bachelor thesis project that
-designs and evaluates a **context-aware recommendation system** incorporating real-time
-weather conditions into event attendance prediction.
-Traditional recommender systems rely on static user preferences and historical behaviour
-while ignoring dynamic contextual factors.
-This project tests the hypothesis that **integrating weather context (temperature and
-precipitation) significantly improves the accuracy of event attendance prediction**
-compared to a baseline model that uses only temporal and categorical event features.
+designs and evaluates a **context-aware recommendation system** incorporating
+**real historical weather conditions** into event attendance prediction.
+
+Traditional recommender systems rely on static user preferences while ignoring dynamic
+contextual factors such as weather. This project tests the hypothesis that
+**integrating real weather data and user weather-sensitivity profiles significantly
+improves attendance prediction**, especially for outdoor events under extreme conditions.
+
+> The previous pipeline used synthetically generated weather.
+> The current pipeline fetches **real historical data from the Open-Meteo archive API**
+> for 18 cities across 4 climate zones. See `legacy/README_old_pipeline.md` for the
+> old results.
 
 ---
 
-## Key Results
+## Key Results (current pipeline -- 49,500 interactions, 18 cities)
 
-| Metric    | Baseline | Contextual | Delta  |
-|-----------|----------|------------|--------|
-| Accuracy  | 0.7165   | **0.8067** | +0.090 |
-| Precision | 0.7188   | **0.7982** | +0.079 |
-| Recall    | 0.6638   | **0.7901** | +0.126 |
-| F1-Score  | 0.6678   | **0.7936** | +0.126 |
+### Global test set (9,900 rows, 22 held-out users)
 
-The Contextual Model significantly outperforms the Baseline across every metric,
-improving the **F1-Score from 0.67 to 0.79** (an absolute increase of ~12.5 percentage points).
-Feature importance analysis reveals that the two weather features alone
-(**precipitation** and **temperature**) account for **~72.5%** of model decisions,
-providing strong empirical evidence for the research hypothesis.
+| Model | Accuracy | Precision | Recall | F1-Score |
+|---|---|---|---|---|
+| RF Baseline *(no weather)* | 0.9128 | 0.9134 | 0.9125 | 0.9127 |
+| RF Contextual | 0.9446 | 0.9449 | 0.9445 | 0.9446 |
+| LGBM Contextual | 0.9559 | 0.9558 | 0.9558 | **0.9558** |
+| XGB Contextual | 0.9563 | 0.9563 | 0.9562 | **0.9562** |
 
-| Rank | Feature             | Importance |
-|------|---------------------|------------|
-| 1    | weather_precip_mm   | 0.4547     |
-| 2    | weather_temp_C      | 0.2705     |
-| 3    | event_month         | 0.0570     |
-| 4    | season              | 0.0538     |
-| 5    | location_enc        | 0.0517     |
+RF Baseline → XGB Contextual: **+3.19 pp F1** on the global test set.
+
+### Extreme-weather subgroup (n = 1,606 | outdoor & T < 5°C or precip > 0.5 mm)
+
+| Model | Accuracy | Precision | Recall | F1-Score |
+|---|---|---|---|---|
+| RF Baseline *(no weather)* | 0.9271 | 0.9008 | 0.8956 | 0.8981 |
+| RF Contextual | 0.9595 | 0.9634 | 0.9232 | 0.9413 |
+| LGBM Contextual | 0.9726 | 0.9695 | 0.9537 | 0.9613 |
+| **XGB Contextual** | **0.9788** | **0.9804** | **0.9605** | **0.9700** |
+
+**Relative Error Reduction (RF Baseline → XGB Contextual)**
+
+| Scope | Accuracy RER | F1 RER |
+|---|---|---|
+| Global test | 49.9 % | 49.8 % |
+| Extreme-weather slice | **70.9 %** | **70.6 %** |
+
+The contextual models eliminate **~71 % of errors** that the weather-blind baseline
+makes on hard outdoor scenarios (cold / wet conditions).
+
+### Outdoor attendance by weather condition (simulation validation)
+
+| Condition | Attendance rate |
+|---|---|
+| Outdoor + extreme heat (T > 35°C) | 7.7 % |
+| Outdoor + extreme cold (T < 0°C) | 16.3 % |
+| Outdoor + no rain | 41.4 % |
+| Indoor (any weather) | ~75 % |
 
 ---
-## Note on Weather Data
-The weather features (**weather_temp_C**, **weather_precip_mm**) used in this project are synthetically generated and do not represent real meteorological measurements. They were produced programmatically in **src/generate_weather.py** using season- and month-correlated statistical distributions to simulate a temperate climate. This synthetic approach was adopted deliberately to isolate and demonstrate the methodological contribution of integrating weather context into attendance prediction, independent of real-time data availability.
+
+## Dataset
+
+| Property | Value |
+|---|---|
+| Users | 110 real survey respondents (`data/processed/app_users.csv`) |
+| Events | 450 synthetic events across 4 climate zones |
+| Interactions | 110 × 450 = **49,500 rows** |
+| Weather source | Open-Meteo Historical Archive API (real hourly data) |
+| Label | `attended` (0/1) -- 50/50 balanced via median threshold |
+| Split | GroupShuffleSplit on `user_id` -- 88 train / 22 test users |
+
+### Climate zones
+
+| Zone | Cities | Season window | Events |
+|---|---|---|---|
+| Moderate | Bucharest, Cluj-Napoca, Timisoara, Iasi, Constanta, Brasov | Jun 2024 -- Jun 2025 | 270 |
+| Cold | Oslo, Helsinki, Quebec | Dec 2024 -- Feb 2025 | 60 |
+| Heat | Dubai, Phoenix, Seville | Jun -- Aug 2024 | 60 |
+| Rain | London, Bergen, Seattle | Oct -- Nov 2024 | 60 |
+
+Extreme zones = **40 %** of all events.
 
 ---
+
 ## Repository Layout
 
 ```
 WAVE/
 |-- data/
-|   |-- raw/                        # Original unprocessed datasets
-|   |   |-- event_attendance.csv    #   * Primary training data (Kaggle, ~200 000 rows)
-|   |   |-- users_110.csv           #   * User survey (110 respondents, event preferences)
-|   |   |-- cultural_engagement_dataset.csv   # (archived -- outside current scope)
-|   |   |-- cult_pcs_caa_linear.csv           # (archived -- outside current scope)
-|   |-- processed/                  # Pipeline outputs
-|       |-- train_ready.csv         #   Training-ready dataset with weather & labels
-|       |-- app_users.csv           #   Cleaned user profiles for the demo app
+|   |-- raw/
+|   |   |-- weather_archive_cache.csv   # Hourly weather per city (Open-Meteo)
+|   |-- processed/
+|       |-- app_users.csv               # 110 user profiles (survey)
+|       |-- interaction_foundation.csv  # Step 1 output: 49,500 user x event rows
+|       |-- interaction_with_weather.csv# Step 2 output: + real weather columns
+|       |-- train_ready_interactions.csv# Step 3 output: + attended label
 |
-|-- models/                         # Serialised trained models (joblib)
-|   |-- baseline_rf.joblib          #   RandomForest -- temporal + categorical features
-|   |-- contextual_rf.joblib        #   RandomForest -- above + weather features
+|-- models/
+|   |-- baseline_rf.joblib             # RF -- no weather features
+|   |-- contextual_rf.joblib           # RF -- full features
+|   |-- lgbm_contextual.joblib         # LightGBM -- full features
+|   |-- xgb_contextual.joblib          # XGBoost -- full features
+|   |-- scaler.joblib                  # StandardScaler (fit on train only)
 |
-|-- results/                        # Evaluation outputs (plots & tables)
+|-- results/
 |   |-- confusion_matrix_comparison.png
 |   |-- roc_comparison.png
 |   |-- pr_curve_comparison.png
 |   |-- metrics_barchart.png
+|   |-- metrics_barchart_extreme_weather.png  # NEW -- subgroup
 |   |-- metrics_comparison.csv
+|   |-- metrics_subgroup_extreme_weather.csv  # NEW -- subgroup table
 |   |-- feature_importances.csv
+|   |-- f1_extreme_weather_slice.png          # NEW -- F1 bar (subgroup)
+|   |-- xgb_subgroup_permutation_importance.png  # NEW -- permutation importance
 |
-|-- src/                            # Core pipeline scripts
-|   |-- dataset_pipeline.py         #   Step 1 -- clean, encode, scale raw data
-|   |-- generate_weather.py         #   Step 2 -- synthetic weather + attendance flip
-|   |-- train_models.py             #   Step 3 -- train Baseline & Contextual RF
-|   |-- evaluate_visuals.py         #   Step 4 -- confusion matrices, ROC, importances
+|-- src/
+|   |-- generate_foundation.py    # Step 1 -- 450 events x 110 users Cartesian grid
+|   |-- fetch_weather_api.py      # Step 2 -- real weather from Open-Meteo (18 cities)
+|   |-- simulate_labels.py        # Step 3 -- behavioural label simulation
+|   |-- train_models.py           # Step 4 -- train 4 models (GroupShuffleSplit)
+|   |-- eval_common.py            # Shared preprocessing for evaluation scripts
+|   |-- evaluate_visuals.py       # Step 5 -- confusion, ROC, F1 subgroup, permutation
+|   |-- evaluate_extended_metrics.py  # Step 6 -- metrics CSV, barcharts, RER
+|   |-- test_weather_signal.py    # Isolated blind vs contextual experiment
+|   |-- cross_validate.py         # K-fold cross-validation
 |
-|-- evaluate_extended_metrics.py    # Step 5 -- metrics CSV, bar chart, PR curve
-|-- requirements.txt                # Python dependencies
-|-- DirectionOfProject.sty          # Project scope & research description
-|-- README.md                       # This file
+|-- legacy/                       # Archived old pipeline (pre-rebuild)
+|   |-- README_old_pipeline.md    # Old README with old results
+|   |-- dataset_pipeline.py
+|   |-- generate_weather.py       # Old synthetic weather generation
+|   |-- build_interaction_dataset.py
+|   |-- fetch_weather.py
+|   |-- ...
+|
+|-- docs/
+|   |-- DATASET_METHODOLOGY.md
+|
+|-- requirements.txt
+|-- README.md
 ```
-
-### A note on archived datasets
-
-`cultural_engagement_dataset.csv` and `cult_pcs_caa_linear.csv` were explored during
-the initial analysis phase but intentionally excluded to maintain a focused thesis scope.
-They share no common user or event keys with the primary datasets and provide only
-country-level aggregation that does not align with per-event prediction.
-They are retained in `data/raw/` for transparency and potential future extensions.
 
 ---
 
@@ -96,7 +154,7 @@ They are retained in `data/raw/` for transparency and potential future extension
 
 ### Prerequisites
 
-* **Python 3.10** or later
+* Python 3.10 or later
 * `pip` (bundled with Python)
 
 ### Steps
@@ -123,95 +181,102 @@ pip install -r requirements.txt
 
 ## Reproduction -- Pipeline Run Order
 
-The entire experiment can be reproduced end-to-end with the five commands below.
-Each script is idempotent and overwrites its outputs, so re-running is safe.
+Run each script in order from the project root. Every step is idempotent.
 
 ```bash
-# Step 1 -- Data cleaning, encoding, scaling
-#           Produces: data/processed/train_ready.csv, data/processed/app_users.csv
-python src/dataset_pipeline.py
+# Step 1 -- Generate 450 events x 110 users interaction grid (no weather yet)
+#           Produces: data/processed/interaction_foundation.csv  (49,500 rows)
+python src/generate_foundation.py
 
-# Step 2 -- Populate synthetic weather features & adjust attendance labels
-#           Updates:  data/processed/train_ready.csv (in-place)
-python src/generate_weather.py
+# Step 2 -- Fetch real hourly weather from Open-Meteo for all 18 cities
+#           Produces: data/raw/weather_archive_cache.csv
+#                     data/processed/interaction_with_weather.csv
+python src/fetch_weather_api.py
 
-# Step 3 -- Train Baseline and Contextual RandomForest classifiers
-#           Produces: models/baseline_rf.joblib, models/contextual_rf.joblib
+# Step 3 -- Simulate attended labels using weather x user sensitivity profile
+#           Produces: data/processed/train_ready_interactions.csv
+python src/simulate_labels.py
+
+# Step 4 -- Train 4 models (RF Baseline, RF Contextual, LGBM, XGB)
+#           Produces: models/*.joblib, results/metrics_comparison.csv
 python src/train_models.py
 
-# Step 4 -- Generate confusion matrices, ROC curves, feature importance CSV
+# Step 5 -- Confusion matrices, ROC, F1 subgroup bar, XGB permutation importance
 #           Produces: results/confusion_matrix_comparison.png
 #                     results/roc_comparison.png
-#                     results/feature_importances.csv
+#                     results/f1_extreme_weather_slice.png
+#                     results/xgb_subgroup_permutation_importance.png
 python src/evaluate_visuals.py
 
-# Step 5 -- Generate metrics table, grouped bar chart, Precision-Recall curve
-#           Produces: results/metrics_comparison.csv
-#                     results/metrics_barchart.png
+# Step 6 -- Global + subgroup metrics tables, barcharts, Relative Error Reduction
+#           Produces: results/metrics_barchart.png
+#                     results/metrics_barchart_extreme_weather.png
+#                     results/metrics_subgroup_extreme_weather.csv
 #                     results/pr_curve_comparison.png
-python evaluate_extended_metrics.py
+python src/evaluate_extended_metrics.py
 ```
 
 ---
 
-## Methodology & Reproducibility
+## Methodology
 
 ### Experimental Design
 
-Two **RandomForestClassifier** models are trained on the same dataset with identical
-hyper-parameters; only the feature set differs:
+Four models are trained on the same 49,500-row dataset with the same hyperparameters.
+Only the feature set differs between Baseline and Contextual:
 
-| Aspect          | Baseline Model                       | Contextual Model                          |
-|-----------------|--------------------------------------|-------------------------------------------|
-| Features        | Temporal + categorical (6 features)  | Temporal + categorical + weather (8 features) |
-| Target          | `attended` (binary: 0 / 1)           | `attended` (binary: 0 / 1)               |
-| Hyper-parameters | `n_estimators=100, max_depth=15, min_samples_split=5` | Same |
+| Aspect | RF Baseline | RF / LGBM / XGB Contextual |
+|---|---|---|
+| User preferences | Yes | Yes |
+| Event type, location, month | Yes | Yes |
+| Real weather (temp, precip, wind) | **No** | **Yes** |
+| User weather sensitivity profile | **No** | **Yes** |
+| Algorithm | RandomForest | RF / LightGBM / XGBoost |
 
 ### Reproducibility Guarantees
 
-* **Random seed:** All stochastic operations use `random_state=42` (data splitting,
-  model initialisation, synthetic weather generation via `numpy.random.default_rng(42)`).
-* **Stratified splitting:** `train_test_split(..., stratify=y)` preserves the class
-  ratio (~61 % attended / ~39 % not attended) in both train and test partitions.
-* **Deterministic pipeline:** Running the five scripts sequentially from a clean
-  `data/raw/` folder will produce byte-identical outputs.
+* **Random seed:** `random_state=42` / `numpy.random.default_rng(42)` throughout.
+* **Group split:** `GroupShuffleSplit(test_size=0.20)` on `user_id` — no user appears
+  in both train and test, preventing profile memorisation.
+* **No data leakage:** `StandardScaler` fitted on train fold only; `final_prob`
+  (the continuous probability used to generate labels) is excluded from features.
+* **Deterministic:** Re-running steps 1--6 from a clean state produces identical outputs.
 
-### Inspecting Saved Models
+### Weather Data
 
-The `.joblib` files are serialised scikit-learn estimators.
-Load and inspect them interactively:
+Weather is fetched from the **Open-Meteo Historical Archive API** (free, no key needed).
+One API call per city covers the full event date window for that city; 15 API calls total
+for 15 unique cities in the dataset.
 
-```python
-import joblib
-
-model = joblib.load("models/contextual_rf.joblib")
-
-print(type(model))               # <class 'sklearn.ensemble._forest.RandomForestClassifier'>
-print(model.get_params())         # hyper-parameters
-print(model.n_features_in_)       # number of input features
-print(model.feature_importances_) # feature importance array
-```
+Fetched variables: `temperature_2m`, `precipitation`, `windspeed_10m` (hourly).
 
 ---
 
 ## Tech Stack
 
-| Component         | Technology               |
-|-------------------|--------------------------|
-| Language          | Python 3.10+             |
-| Data manipulation | Pandas, NumPy            |
-| ML framework      | scikit-learn             |
-| Model persistence | joblib                   |
-| Visualisation     | Matplotlib               |
-| Frontend (planned)| Streamlit or PWA         |
-| Weather API (planned) | OpenWeatherMap       |
+| Component | Technology |
+|---|---|
+| Language | Python 3.10+ |
+| Data manipulation | Pandas, NumPy |
+| ML framework | scikit-learn, LightGBM, XGBoost |
+| Weather data | Open-Meteo Historical Archive API |
+| Model persistence | joblib |
+| Visualisation | Matplotlib |
+| Feature analysis | sklearn.inspection.permutation_importance |
+
+---
+
+## Version History
+
+| Tag / Branch | Description |
+|---|---|
+| `archive/old-dataset-and-models` | Last state before modular rebuild: synthetic weather, old `train_ready.csv`, 2-model RF experiment |
+| `legacy/old-dataset-pipeline` | Same snapshot as a branch for easy checkout |
+| `main` (current) | Modular pipeline: real weather, 18 cities, 4 models, subgroup analysis |
 
 ---
 
 ## License
 
-This project is developed as part of a **Bachelor's Thesis** at ASE Bucharest (CSIE). All rights reserved by the author. For academic or research use, please
-cite appropriately.
-
----
-
+This project is developed as part of a **Bachelor's Thesis** at ASE Bucharest (CSIE).
+All rights reserved by the author. For academic or research use, please cite appropriately.
