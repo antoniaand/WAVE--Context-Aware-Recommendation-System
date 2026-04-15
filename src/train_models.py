@@ -51,7 +51,12 @@ DROP_COLS = [
 ]
 
 # Weather feature names — absent in baseline, present in contextual
-WEATHER_COLS = ["weather_temp_C", "weather_precip_mm", "weather_wind_speed_kmh"]
+WEATHER_COLS = [
+    "weather_temp_C",
+    "weather_humidity",
+    "weather_precip_mm",
+    "weather_wind_speed_kmh",
+]
 
 # Categorical columns that need label-encoding before scaling
 CATEGORICAL_COLS = [
@@ -138,13 +143,18 @@ def load_and_split(path: Path):
 def get_feature_sets(X_train, X_test):
     """Baseline uses all features except weather; contextual uses all."""
     baseline_cols   = [c for c in X_train.columns if c not in WEATHER_COLS]
+    # Strict baseline: also drop geography/season proxies (weather-blind + climate-blind)
+    STRICT_DROP = {"location", "climate_zone", "event_month"}
+    baseline_strict_cols = [c for c in baseline_cols if c not in STRICT_DROP]
     contextual_cols = list(X_train.columns)
     print(f"Baseline feature count  : {len(baseline_cols)}")
+    print(f"Strict baseline features: {len(baseline_strict_cols)}  (drops {sorted(STRICT_DROP)})")
     print(f"Contextual feature count: {len(contextual_cols)}\n")
     return (
         X_train[baseline_cols], X_test[baseline_cols],
+        X_train[baseline_strict_cols], X_test[baseline_strict_cols],
         X_train[contextual_cols], X_test[contextual_cols],
-        baseline_cols, contextual_cols,
+        baseline_cols, baseline_strict_cols, contextual_cols,
     )
 
 
@@ -207,7 +217,7 @@ def print_comparison(metrics_list: list):
         print("".join(str(m[c]).ljust(w) for c, w in zip(cols, col_w)))
     print(sep)
 
-    # vs. old results
+    # vs. old results (only for models that existed historically)
     old = {
         "RF Baseline (no weather)": {"Accuracy": 0.7073, "Precision": 0.5574, "Recall": 0.5033, "F1-Score": 0.4296},
         "RF Contextual":            {"Accuracy": 0.7090, "Precision": 0.5906, "Recall": 0.5041, "F1-Score": 0.4292},
@@ -223,12 +233,13 @@ def print_comparison(metrics_list: list):
     print(sep)
     for m in metrics_list:
         name = m["Model"]
-        if name in old:
-            row = [name] + [
-                f"{m[k] - old[name][k]:+.4f}"
-                for k in ["Accuracy", "Precision", "Recall", "F1-Score"]
-            ]
-            print("".join(str(v).ljust(w) for v, w in zip(row, col_w)))
+        if name not in old:
+            continue
+        row = [name] + [
+            f"{m[k] - old[name][k]:+.4f}"
+            for k in ["Accuracy", "Precision", "Recall", "F1-Score"]
+        ]
+        print("".join(str(v).ljust(w) for v, w in zip(row, col_w)))
     print(sep + "\n")
 
 
@@ -262,27 +273,30 @@ def save_model(model, filename: str):
 def main():
     X_train, X_test, y_train, y_test = load_and_split(CSV_PATH)
 
-    X_tr_base, X_te_base, X_tr_ctx, X_te_ctx, base_cols, ctx_cols = \
+    X_tr_base, X_te_base, X_tr_strict, X_te_strict, X_tr_ctx, X_te_ctx, base_cols, strict_cols, ctx_cols = \
         get_feature_sets(X_train, X_test)
 
     baseline_model = train(build_rf(),   X_tr_base, y_train, "Baseline RF")
+    strict_model   = train(build_rf(),   X_tr_strict, y_train, "Strict Baseline RF")
     rf_ctx_model   = train(build_rf(),   X_tr_ctx,  y_train, "Contextual RF")
     lgbm_model     = train(build_lgbm(), X_tr_ctx,  y_train, "Contextual LGBM")
     xgb_model      = train(build_xgb(),  X_tr_ctx,  y_train, "Contextual XGBoost")
 
     m_base = evaluate(baseline_model, X_te_base, y_test, "RF Baseline (no weather)")
+    m_strict = evaluate(strict_model,  X_te_strict, y_test, "RF Baseline (strict)")
     m_rfctx = evaluate(rf_ctx_model,  X_te_ctx,  y_test, "RF Contextual")
     m_lgbm  = evaluate(lgbm_model,    X_te_ctx,  y_test, "LGBM Contextual")
     m_xgb   = evaluate(xgb_model,     X_te_ctx,  y_test, "XGB Contextual")
-    print_comparison([m_base, m_rfctx, m_lgbm, m_xgb])
+    print_comparison([m_base, m_strict, m_rfctx, m_lgbm, m_xgb])
 
     print_feature_importances(rf_ctx_model, ctx_cols, "RF Contextual")
     print_feature_importances(lgbm_model,   ctx_cols, "LGBM Contextual")
     print_feature_importances(xgb_model,    ctx_cols, "XGB Contextual")
 
-    save_metrics([m_base, m_rfctx, m_lgbm, m_xgb])
+    save_metrics([m_base, m_strict, m_rfctx, m_lgbm, m_xgb])
 
     save_model(baseline_model, "baseline_rf.joblib")
+    save_model(strict_model,   "baseline_strict_rf.joblib")
     save_model(rf_ctx_model,   "contextual_rf.joblib")
     save_model(lgbm_model,     "lgbm_contextual.joblib")
     save_model(xgb_model,      "xgb_contextual.joblib")
