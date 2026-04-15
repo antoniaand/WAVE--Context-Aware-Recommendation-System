@@ -1,0 +1,5 @@
+,RF Baseline,RF Baseline (strict),RF Contextual,LGBM Contextual,XGB Contextual
+Accuracy,0.9352,0.9103,0.9334,0.9626,0.9589
+Precision,0.9282,0.8369,0.9528,0.9519,0.955
+Recall,0.8377,0.8665,0.8139,0.9151,0.8987
+F1-Score,0.8744,0.8505,0.864,0.9322,0.9238
