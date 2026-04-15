@@ -33,7 +33,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 
-ROOT          = Path(__file__).resolve().parents[1]
+ROOT          = Path(__file__).resolve().parents[2]
 PROCESSED_DIR = ROOT / "data" / "processed"
 MODELS_DIR    = ROOT / "models"
 RESULTS_DIR   = ROOT / "results"
@@ -169,19 +169,26 @@ def build_rf():
 
 def build_lgbm():
     return LGBMClassifier(
-        n_estimators=300, learning_rate=0.05, num_leaves=63,
-        max_depth=-1, min_child_samples=20,
-        random_state=42, n_jobs=-1, verbose=-1,
+        n_estimators=600,
+        learning_rate=0.09271,
+        num_leaves=33,
+        min_child_samples=29,
+        random_state=42,     
+        n_jobs=-1,           
+        verbose=-1           
     )
 
 
 def build_xgb():
     return XGBClassifier(
-        n_estimators=300, learning_rate=0.05, max_depth=6,
-        subsample=0.8, colsample_bytree=0.8,
-        eval_metric="logloss", random_state=42, n_jobs=-1,
+        n_estimators=500, 
+        learning_rate=0.09099, 
+        max_depth=4, 
+        subsample=0.82365,
+        colsample_bytree=0.86967,
+        random_state=42,       
+        eval_metric="logloss" 
     )
-
 
 # ─── Training & Evaluation ────────────────────────────────────────────────────
 
