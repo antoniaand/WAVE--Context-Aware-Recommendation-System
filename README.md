@@ -32,8 +32,8 @@ improves attendance prediction**, especially for outdoor events under extreme co
 | RF Baseline *(no weather)* | 0.8852 | 0.8865 | 0.8849 | 0.8850 |
 | RF Baseline *(strict)* | 0.8677 | 0.8689 | 0.8675 | 0.8675 |
 | RF Contextual | 0.9049 | 0.9053 | 0.9048 | 0.9049 |
-| **LGBM Contextual** | **0.9331** | **0.9332** | **0.9331** | **0.9331** |
-| XGB Contextual | 0.9291 | 0.9293 | 0.9290 | 0.9291 |
+| LGBM Contextual | 0.9325 | 0.9328 | 0.9324 | 0.9325 |
+| **XGB Contextual** | **0.9334** | **0.9338** | **0.9333** | **0.9334** |
 
 Baseline → Contextual gap (RF): **+1.99 pp F1**.\n
 Strict baseline (drops `location`, `climate_zone`, `event_month`) → Contextual gap (RF): **+3.74 pp F1**.
@@ -45,15 +45,15 @@ Strict baseline (drops `location`, `climate_zone`, `event_month`) → Contextual
 | RF Baseline *(no weather)* | 0.9352 | 0.9282 | 0.8377 | 0.8744 |
 | RF Baseline *(strict)* | 0.9103 | 0.8369 | 0.8665 | 0.8505 |
 | RF Contextual | 0.9334 | 0.9528 | 0.8139 | 0.8640 |
-| **LGBM Contextual** | **0.9658** | **0.9503** | **0.9283** | **0.9389** |
-| XGB Contextual | 0.9527 | 0.9472 | 0.8836 | 0.9114 |
+| **LGBM Contextual** | **0.9626** | 0.9519 | **0.9151** | **0.9322** |
+| XGB Contextual | 0.9589 | **0.9550** | 0.8987 | 0.9238 |
 
 **Relative Error Reduction (RF Baseline → XGB Contextual)**
 
 | Scope | Accuracy RER | F1 RER |
 |---|---|---|
-| Global test | 38.2 % | 38.3 % |
-| Extreme-weather slice | **27.0 %** | **29.5 %** |
+| Global test | 42.0 % | 42.1 % |
+| Extreme-weather slice | **36.6 %** | **39.3 %** |
 
 The contextual models eliminate a large fraction of errors that the weather-blind baseline
 makes on hard outdoor scenarios (cold / wet conditions), and the gap grows further when
@@ -116,48 +116,56 @@ WAVE/
 |
 |-- models/
 |   |-- baseline_rf.joblib             # RF -- no weather features
-|   |-- baseline_strict_rf.joblib      # RF -- strict baseline (drops geo/season proxies)
+|   |-- baseline_strict_rf.joblib      # RF -- strict baseline
 |   |-- contextual_rf.joblib           # RF -- full features
 |   |-- lgbm_contextual.joblib         # LightGBM -- full features
 |   |-- xgb_contextual.joblib          # XGBoost -- full features
 |   |-- scaler.joblib                  # StandardScaler (fit on train only)
 |
 |-- results/
-|   |-- confusion_matrix_comparison.png
-|   |-- roc_comparison.png
-|   |-- pr_curve_comparison.png
-|   |-- metrics_barchart.png
-|   |-- metrics_barchart_extreme_weather.png  # NEW -- subgroup
-|   |-- metrics_comparison.csv
-|   |-- metrics_subgroup_extreme_weather.csv  # NEW -- subgroup table
-|   |-- feature_importances.csv
-|   |-- f1_extreme_weather_slice.png          # NEW -- F1 bar (subgroup)
-|   |-- xgb_subgroup_permutation_importance.png  # NEW -- permutation importance
-|   |-- scenario_validation.csv               # NEW -- scenario calibration table output
+|   |-- metrics/
+|   |   |-- metrics_comparison.csv
+|   |   |-- metrics_subgroup_extreme_weather.csv
+|   |   |-- cv_results.csv
+|   |   |-- scenario_validation.csv
+|   |   |-- feature_importances.csv
+|   |-- visuals_performance/
+|   |   |-- metrics_barchart.png
+|   |   |-- cv_comparison.png
+|   |   |-- roc_comparison.png
+|   |   |-- pr_curve_comparison.png
+|   |   |-- confusion_matrix_comparison.png
+|   |-- visuals_subgroups/
+|   |   |-- metrics_barchart_extreme_weather.png
+|   |   |-- f1_extreme_weather_slice.png
+|   |-- visuals_explainability/
+|   |   |-- shap_summary_plot_lgbm.png
+|   |   |-- shap_bar_importance_lgbm.png
+|   |   |-- shap_dependence_temp_precip_lgbm.png
+|   |   |-- xgb_subgroup_permutation_importance.png
 |
 |-- src/
-|   |-- generate_foundation.py    # Step 1 -- 450 events x 110 users Cartesian grid
-|   |-- fetch_weather_api.py      # Step 2 -- real weather from Open-Meteo (18 cities)
-|   |-- simulate_labels.py        # Step 3 -- behavioural label simulation
-|   |-- train_models.py           # Step 4 -- train 4 models (GroupShuffleSplit)
-|   |-- eval_common.py            # Shared preprocessing for evaluation scripts
-|   |-- evaluate_visuals.py       # Step 5 -- confusion, ROC, F1 subgroup, permutation
-|   |-- evaluate_extended_metrics.py  # Step 6 -- metrics CSV, barcharts, RER
-|   |-- test_weather_signal.py    # Isolated blind vs contextual experiment
-|   |-- cross_validate.py         # K-fold cross-validation
-|   |-- scenario_validation.py    # NEW -- calibrate simulator on survey scenarios
+|   |-- data/
+|   |   |-- generate_foundation.py    # Step 1 -- 450 events x 110 users Cartesian grid
+|   |   |-- fetch_weather_api.py      # Step 2 -- real weather from Open-Meteo 
+|   |   |-- simulate_labels.py        # Step 3 -- behavioural label simulation
+|   |-- modeling/
+|   |   |-- train_models.py           # Step 4 -- train 4 models 
+|   |   |-- tune_models_OPTUNA.py     # Hyperparameter optimization target
+|   |   |-- tune_models_GRIDSearch.py
+|   |   |-- cross_validate_overfitting.py # K-fold cross-validation
+|   |-- evaluation/
+|   |   |-- eval_common.py            # Shared preprocessing for evaluation
+|   |   |-- evaluate_visuals.py       # Step 5 -- confusion, ROC, F1 subgroup
+|   |   |-- evaluate_extended_metrics.py  # Step 6 -- metrics CSV, barcharts, RER
+|   |   |-- scenario_validation.py    # calibrate simulator on survey scenarios
+|   |   |-- test_weather_signal.py    # Isolated blind vs contextual experiment
+|   |-- xAI_SHAP/
+|   |   |-- explain_models.py         # SHAP value extraction and explanation plots
 |
 |-- legacy/                       # Archived old pipeline (pre-rebuild)
-|   |-- README_old_pipeline.md    # Old README with old results
-|   |-- dataset_pipeline.py
-|   |-- generate_weather.py       # Old synthetic weather generation
-|   |-- build_interaction_dataset.py
-|   |-- fetch_weather.py
-|   |-- ...
-|
 |-- docs/
 |   |-- DATASET_METHODOLOGY.md
-|
 |-- requirements.txt
 |-- README.md
 ```
@@ -200,37 +208,31 @@ Run each script in order from the project root. Every step is idempotent.
 ```bash
 # Step 1 -- Generate 450 events x 110 users interaction grid (no weather yet)
 #           Produces: data/processed/interaction_foundation.csv  (49,500 rows)
-python src/generate_foundation.py
+python src/data/generate_foundation.py
 
 # Step 2 -- Fetch real hourly weather from Open-Meteo for all 18 cities
 #           Produces: data/raw/weather_archive_cache.csv
 #                     data/processed/interaction_with_weather.csv
-python src/fetch_weather_api.py
+python src/data/fetch_weather_api.py
 
 # Step 3 -- Simulate attended labels using weather x user sensitivity profile
 #           Produces: data/processed/train_ready_interactions.csv
-python src/simulate_labels.py
+python src/data/simulate_labels.py
 
 # Step 4 -- Train 4 models (RF Baseline, RF Contextual, LGBM, XGB)
-#           Produces: models/*.joblib, results/metrics_comparison.csv
-python src/train_models.py
+#           Produces: models/*.joblib, results/metrics/metrics_comparison.csv
+python src/modeling/train_models.py
 
 # Step 5 -- Confusion matrices, ROC, F1 subgroup bar, XGB permutation importance
-#           Produces: results/confusion_matrix_comparison.png
-#                     results/roc_comparison.png
-#                     results/f1_extreme_weather_slice.png
-#                     results/xgb_subgroup_permutation_importance.png
-python src/evaluate_visuals.py
+#           Produces charts in results/visuals_performance/ and results/visuals_subgroups/
+python src/evaluation/evaluate_visuals.py
 
 # Step 6 -- Global + subgroup metrics tables, barcharts, Relative Error Reduction
-#           Produces: results/metrics_barchart.png
-#                     results/metrics_barchart_extreme_weather.png
-#                     results/metrics_subgroup_extreme_weather.csv
-#                     results/pr_curve_comparison.png
-python src/evaluate_extended_metrics.py
+#           Produces metrics in results/metrics/ and charts in results/visuals...
+python src/evaluation/evaluate_extended_metrics.py
 
 # Optional -- Scenario calibration check (survey hypotheticals)
-python src/scenario_validation.py
+python src/evaluation/scenario_validation.py
 ```
 
 ---
