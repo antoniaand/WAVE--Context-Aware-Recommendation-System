@@ -84,7 +84,7 @@ def _fetch_city(city: str, lat: float, lon: float,
         "longitude": lon,
         "start_date": start,
         "end_date":   end,
-        "hourly": "temperature_2m,precipitation,windspeed_10m",
+        "hourly": "temperature_2m,relative_humidity_2m,precipitation,windspeed_10m",
         "timezone": TIMEZONE,
     }
 
@@ -114,6 +114,7 @@ def _fetch_city(city: str, lat: float, lon: float,
         "date":                    dt_series.strftime("%Y-%m-%d"),
         "hour":                    dt_series.hour,
         "weather_temp_C":          hourly.get("temperature_2m", [None] * len(times)),
+        "weather_humidity":        hourly.get("relative_humidity_2m", [None] * len(times)),
         "weather_precip_mm":       hourly.get("precipitation",  [None] * len(times)),
         "weather_wind_speed_kmh":  hourly.get("windspeed_10m",  [None] * len(times)),
     })
@@ -189,7 +190,8 @@ def merge_weather(foundation_path: Path, cache: pd.DataFrame) -> pd.DataFrame:
     # Build a lookup keyed on (city, date, hour) with only the columns we need
     weather_lookup = (
         cache[["city", "date", "hour",
-               "weather_temp_C", "weather_precip_mm", "weather_wind_speed_kmh"]]
+               "weather_temp_C", "weather_humidity",
+               "weather_precip_mm", "weather_wind_speed_kmh"]]
         .drop_duplicates(subset=["city", "date", "hour"])
         .rename(columns={"city": "location", "date": "event_date", "hour": "event_hour"})
     )
