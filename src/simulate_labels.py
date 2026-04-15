@@ -34,6 +34,20 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
+# ── Comfort index (Zhang et al., 2020) ────────────────────────────────────────
+#
+# We implement the Discomfort Index (DI) form used in the key paper, which
+# combines temperature, humidity, and wind into a single comfort signal.
+# Humidity is fetched from Open-Meteo as `relative_humidity_2m` and stored as
+# `weather_humidity` (0–100).
+#
+# DI = 1.8*T - 0.55*(1.8*T - 26)*(1 - F) - 3.2*sqrt(Ws) + 32
+#   T  = temperature in °C
+#   F  = relative humidity fraction (0–1)
+#   Ws = wind speed in m/s
+#
+# Higher/lower DI away from an "ideal" comfort point reduces outdoor attendance.
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT       = Path(__file__).resolve().parents[1]
 INPUT_CSV  = ROOT / "data" / "processed" / "interaction_with_weather.csv"
@@ -92,6 +106,13 @@ def compute_raw_weather(df: pd.DataFrame) -> pd.DataFrame:
         "wind_raw": wind_raw,
     })
 
+def compute_comfort_index(df: pd.DataFrame) -> pd.Series:
+    T = df["weather_temp_C"]
+    F = df["weather_humidity"] / 100.0
+    Ws = df["weather_wind_speed_kmh"] / 3.6  # km/h -> m/s
+    DI = 1.8 * T - 0.55 * (1.8 * T - 26) * (1 - F) - 3.2 * np.sqrt(Ws.clip(lower=0)) + 32
+    return DI.clip(0, 90)
+
 
 # ── Step 3 – Weather adjustment (signed) ─────────────────────────────────────
 #
@@ -109,6 +130,22 @@ def compute_raw_weather(df: pd.DataFrame) -> pd.DataFrame:
 #   cold_intol  = (5 - cold_tolerance) / 4      higher = less cold-tolerant
 #   heat_intol  = (heat_sensitivity - 1) / 4    higher = more heat-sensitive
 #   wind_intol  = (wind_sensitivity - 1) / 4    higher = more wind-sensitive
+#
+# Literature alignment (why these weights look like this)
+# -------------------------------------------------------
+# - Zhang et al. (2020) (real Meetup check-ins + real weather) report that:
+#   - Temperature has the strongest *direct* effect on outdoor attendance.
+#   - Rain/snow reduces attendance (secondary but visible), and wind contributes via a
+#     "human comfort index" (temperature + humidity + wind) that suppresses attendance
+#     when too high/low. Indoor events show mostly indirect / damped effects.
+# - Multiple extreme-weather attendance analyses report substantial drops under
+#   extreme cold/heat/heavy precipitation (often tens of percent for outdoor festivals).
+#
+# Implementation notes:
+# - We approximate the comfort effect using temperature deviation (cold_raw/heat_raw)
+#   plus wind (wind_raw) because humidity is not available in our archive features.
+# - We intentionally make temperature-related penalties (cold + heat) the largest
+#   contributors for outdoor events, while keeping rain stronger than heat (rain > heat).
 
 def compute_weather_adjust(df: pd.DataFrame, raw: pd.DataFrame) -> pd.Series:
     rain_intol = (df["rain_avoid"]        - 1) / 4
@@ -117,12 +154,20 @@ def compute_weather_adjust(df: pd.DataFrame, raw: pd.DataFrame) -> pd.Series:
     wind_intol = (df["wind_sensitivity"]  - 1) / 4
 
     # --- Outdoor penalty (strong) ---
+    # Discomfort from DI: distance from an ideal comfort point (≈69 in this DI scale).
+    # Scale factor chosen so a 20–25 point deviation saturates to 1.0 discomfort.
+    DI = compute_comfort_index(df)
+    ideal = 69.0
+    di_discomfort = (DI - ideal).abs() / 25.0
+    di_discomfort = di_discomfort.clip(0, 1)
+
+    # Temperature is the strongest direct driver (via DI), rain is secondary but strong,
+    # and we keep a small explicit wind term to reflect direct wind aversion beyond DI.
     outdoor_penalty = (
-        rain_intol * raw["rain_raw"] * 0.55   # rain is the dominant deterrent
-        + cold_intol * raw["cold_raw"] * 0.50
-        + heat_intol * raw["heat_raw"] * 0.25
-        + wind_intol * raw["wind_raw"] * 0.25
-    ).clip(0, 0.75)
+        ((cold_intol + heat_intol) / 2.0) * di_discomfort * 0.80
+        + rain_intol * raw["rain_raw"] * 0.55
+        + wind_intol * raw["wind_raw"] * 0.10
+    ).clip(0, 0.80)
 
     # Nice-weather outdoor bonus: clear + 13–24 °C + low wind
     nice = (
@@ -312,10 +357,10 @@ def print_validation(df: pd.DataFrame) -> None:
     print("\n-- Extreme weather attendance breakdown ---------------------")
     xheat_out = df[(df["weather_temp_C"] > 35) & (df["is_outdoor"] == 1)]
     xcold_out = df[(df["weather_temp_C"] < 0)  & (df["is_outdoor"] == 1)]
-    xrain_out = df[(df["weather_precip_mm"] > 5) & (df["is_outdoor"] == 1)]
+    xrain_out = df[(df["weather_precip_mm"] >= 2) & (df["is_outdoor"] == 1)]
     for label, subset in [("Outdoor + temp>35C", xheat_out),
                            ("Outdoor + temp<0C",  xcold_out),
-                           ("Outdoor + precip>5mm", xrain_out)]:
+                           ("Outdoor + precip>=2mm", xrain_out)]:
         if len(subset):
             print(f"  {label:<28} | {len(subset):>6,} rows | "
                   f"attendance {subset['attended'].mean()*100:.1f}%")
