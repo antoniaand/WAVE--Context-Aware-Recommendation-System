@@ -26,13 +26,15 @@ from train_models import (
 ROOT = Path(__file__).resolve().parents[1]
 
 WEATHER_COLS_SET = set(WEATHER_COLS)
+STRICT_BASELINE_EXTRA_DROP = {"location", "climate_zone", "event_month"}
 
-# Model registry: (display label, joblib filename, uses_weather)
+# Model registry: (display label, joblib filename, uses_weather, extra_drop_cols)
 MODEL_REGISTRY = [
-    ("RF Baseline",     "baseline_rf.joblib",    False),
-    ("RF Contextual",   "contextual_rf.joblib",   True),
-    ("LGBM Contextual", "lgbm_contextual.joblib", True),
-    ("XGB Contextual",  "xgb_contextual.joblib",  True),
+    ("RF Baseline",           "baseline_rf.joblib",        False, set()),
+    ("RF Baseline (strict)",  "baseline_strict_rf.joblib", False, STRICT_BASELINE_EXTRA_DROP),
+    ("RF Contextual",         "contextual_rf.joblib",       True, set()),
+    ("LGBM Contextual",       "lgbm_contextual.joblib",     True, set()),
+    ("XGB Contextual",        "xgb_contextual.joblib",      True, set()),
 ]
 
 
@@ -78,10 +80,15 @@ def extreme_weather_slice_mask(X_pre_scale: pd.DataFrame) -> pd.Series:
     )
 
 
-def get_X_for_model(X_test: pd.DataFrame, uses_weather: bool) -> pd.DataFrame:
+def get_X_for_model(X_test: pd.DataFrame, uses_weather: bool, extra_drop: set[str] | None = None) -> pd.DataFrame:
     if uses_weather:
-        return X_test
-    return X_test[[c for c in X_test.columns if c not in WEATHER_COLS_SET]]
+        X = X_test
+    else:
+        X = X_test[[c for c in X_test.columns if c not in WEATHER_COLS_SET]]
+    if extra_drop:
+        keep = [c for c in X.columns if c not in extra_drop]
+        return X[keep]
+    return X
 
 
 def get_pos_probs(model, X: pd.DataFrame) -> np.ndarray:

@@ -65,7 +65,8 @@ def plot_metrics_barchart(df_metrics: pd.DataFrame, out_path: Path, title: str):
     n_models = len(model_labels)
     x = np.arange(len(metrics))
     width = 0.18
-    colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52"]
+    base_colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52", "#8172b3", "#937860"]
+    colors = (base_colors * ((n_models // len(base_colors)) + 1))[:n_models]
 
     fig, ax = plt.subplots(figsize=(11, 6))
     for i, (col, color) in enumerate(zip(model_labels, colors)):
@@ -96,7 +97,8 @@ def plot_metrics_barchart(df_metrics: pd.DataFrame, out_path: Path, title: str):
 
 
 def plot_pr_curves(pr_data: list, out_path: Path):
-    colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52"]
+    base_colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52", "#8172b3", "#937860"]
+    colors = (base_colors * ((len(pr_data) // len(base_colors)) + 1))[: len(pr_data)]
     fig, ax = plt.subplots(figsize=(8, 6))
     for (label, y_true, probs), color in zip(pr_data, colors):
         precision, recall, _ = precision_recall_curve(y_true, probs)
@@ -142,12 +144,12 @@ def run_models_collect_metrics(X_test, slice_mask, y_test) -> dict:
     """Predict on full X_test; metrics computed on y_test[slice_mask] for subgroup."""
     out = {}
     y_np = y_test.to_numpy() if hasattr(y_test, "to_numpy") else np.asarray(y_test)
-    for label, filename, uses_weather in MODEL_REGISTRY:
+    for label, filename, uses_weather, extra_drop in MODEL_REGISTRY:
         path = MODELS_DIR / filename
         if not path.exists():
             continue
         model = joblib.load(path)
-        X = get_X_for_model(X_test, uses_weather)
+        X = get_X_for_model(X_test, uses_weather, extra_drop)
         y_pred = model.predict(X)
         if slice_mask is None:
             out[label] = compute_metrics(y_test, y_pred)
@@ -171,13 +173,13 @@ def main():
     # ----- Global metrics -----
     all_metrics = run_models_collect_metrics(X_test, None, y_test)
     pr_data = []
-    for label, filename, uses_weather in MODEL_REGISTRY:
+    for label, filename, uses_weather, extra_drop in MODEL_REGISTRY:
         path = MODELS_DIR / filename
         if not path.exists():
             print(f"WARNING: {filename} missing, skip.")
             continue
         model = joblib.load(path)
-        X = get_X_for_model(X_test, uses_weather)
+        X = get_X_for_model(X_test, uses_weather, extra_drop)
         probs = get_pos_probs(model, X)
         pr_data.append((label, y_test, probs))
 

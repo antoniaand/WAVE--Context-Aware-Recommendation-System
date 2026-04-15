@@ -36,6 +36,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 WEATHER_FEATURE_LABELS = {
     "weather_temp_C": "Temp (C)",
+    "weather_humidity": "Humidity (%)",
     "weather_precip_mm": "Precip (mm)",
     "weather_wind_speed_kmh": "Wind (km/h)",
 }
@@ -96,7 +97,8 @@ def plot_roc_curves(roc_data: list, out_path: Path, title: str):
 def plot_f1_extreme_weather(f1_by_model: dict, n_slice: int, out_path: Path):
     labels = list(f1_by_model.keys())
     values = [f1_by_model[k] for k in labels]
-    colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52"][: len(labels)]
+    base_colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52", "#8172b3", "#937860"]
+    colors = (base_colors * ((len(labels) // len(base_colors)) + 1))[: len(labels)]
 
     fig, ax = plt.subplots(figsize=(9, 5.5))
     x = np.arange(len(labels))
@@ -205,14 +207,14 @@ def main():
     fi_names = {}
     f1_sub = {}
 
-    for label, filename, uses_weather in MODEL_REGISTRY:
+    for label, filename, uses_weather, extra_drop in MODEL_REGISTRY:
         model_path = MODELS_DIR / filename
         if not model_path.exists():
             print(f"WARNING: {filename} not found, skipping.")
             continue
 
         model = joblib.load(model_path)
-        X = get_X_for_model(X_test, uses_weather)
+        X = get_X_for_model(X_test, uses_weather, extra_drop)
 
         y_pred = model.predict(X)
         probs = get_pos_probs(model, X)
