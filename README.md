@@ -29,40 +29,51 @@ improves attendance prediction**, especially for outdoor events under extreme co
 
 | Model | Accuracy | Precision | Recall | F1-Score |
 |---|---|---|---|---|
-| RF Baseline *(no weather)* | 0.9128 | 0.9134 | 0.9125 | 0.9127 |
-| RF Contextual | 0.9446 | 0.9449 | 0.9445 | 0.9446 |
-| LGBM Contextual | 0.9559 | 0.9558 | 0.9558 | **0.9558** |
-| XGB Contextual | 0.9563 | 0.9563 | 0.9562 | **0.9562** |
+| RF Baseline *(no weather)* | 0.8852 | 0.8865 | 0.8849 | 0.8850 |
+| RF Baseline *(strict)* | 0.8677 | 0.8689 | 0.8675 | 0.8675 |
+| RF Contextual | 0.9049 | 0.9053 | 0.9048 | 0.9049 |
+| **LGBM Contextual** | **0.9331** | **0.9332** | **0.9331** | **0.9331** |
+| XGB Contextual | 0.9291 | 0.9293 | 0.9290 | 0.9291 |
 
-RF Baseline → XGB Contextual: **+3.19 pp F1** on the global test set.
+Baseline → Contextual gap (RF): **+1.99 pp F1**.\n
+Strict baseline (drops `location`, `climate_zone`, `event_month`) → Contextual gap (RF): **+3.74 pp F1**.
 
 ### Extreme-weather subgroup (n = 1,606 | outdoor & T < 5°C or precip > 0.5 mm)
 
 | Model | Accuracy | Precision | Recall | F1-Score |
 |---|---|---|---|---|
-| RF Baseline *(no weather)* | 0.9271 | 0.9008 | 0.8956 | 0.8981 |
-| RF Contextual | 0.9595 | 0.9634 | 0.9232 | 0.9413 |
-| LGBM Contextual | 0.9726 | 0.9695 | 0.9537 | 0.9613 |
-| **XGB Contextual** | **0.9788** | **0.9804** | **0.9605** | **0.9700** |
+| RF Baseline *(no weather)* | 0.9352 | 0.9282 | 0.8377 | 0.8744 |
+| RF Baseline *(strict)* | 0.9103 | 0.8369 | 0.8665 | 0.8505 |
+| RF Contextual | 0.9334 | 0.9528 | 0.8139 | 0.8640 |
+| **LGBM Contextual** | **0.9658** | **0.9503** | **0.9283** | **0.9389** |
+| XGB Contextual | 0.9527 | 0.9472 | 0.8836 | 0.9114 |
 
 **Relative Error Reduction (RF Baseline → XGB Contextual)**
 
 | Scope | Accuracy RER | F1 RER |
 |---|---|---|
-| Global test | 49.9 % | 49.8 % |
-| Extreme-weather slice | **70.9 %** | **70.6 %** |
+| Global test | 38.2 % | 38.3 % |
+| Extreme-weather slice | **27.0 %** | **29.5 %** |
 
-The contextual models eliminate **~71 % of errors** that the weather-blind baseline
-makes on hard outdoor scenarios (cold / wet conditions).
+The contextual models eliminate a large fraction of errors that the weather-blind baseline
+makes on hard outdoor scenarios (cold / wet conditions), and the gap grows further when
+geography/season proxies are removed (strict baseline).
 
 ### Outdoor attendance by weather condition (simulation validation)
 
 | Condition | Attendance rate |
 |---|---|
-| Outdoor + extreme heat (T > 35°C) | 7.7 % |
-| Outdoor + extreme cold (T < 0°C) | 16.3 % |
-| Outdoor + no rain | 41.4 % |
+| Outdoor + extreme heat (T > 35°C) | 9.9 % |
+| Outdoor + extreme cold (T < 0°C) | 13.4 % |
+| Outdoor + no rain | 29.0 % |
 | Indoor (any weather) | ~75 % |
+
+### Scenario calibration check (survey hypotheticals)
+
+We validate that the simulator aligns with the survey's scenario responses by running\n
+the 110 users through 4 scenario mappings (one per scenario question) and computing\n
+binary agreement (scenario score ≥ 2 → attend). This produces **84.3% agreement** overall.\n
+See `src/scenario_validation.py` and `results/scenario_validation.csv`.
 
 ---
 
@@ -105,6 +116,7 @@ WAVE/
 |
 |-- models/
 |   |-- baseline_rf.joblib             # RF -- no weather features
+|   |-- baseline_strict_rf.joblib      # RF -- strict baseline (drops geo/season proxies)
 |   |-- contextual_rf.joblib           # RF -- full features
 |   |-- lgbm_contextual.joblib         # LightGBM -- full features
 |   |-- xgb_contextual.joblib          # XGBoost -- full features
@@ -121,6 +133,7 @@ WAVE/
 |   |-- feature_importances.csv
 |   |-- f1_extreme_weather_slice.png          # NEW -- F1 bar (subgroup)
 |   |-- xgb_subgroup_permutation_importance.png  # NEW -- permutation importance
+|   |-- scenario_validation.csv               # NEW -- scenario calibration table output
 |
 |-- src/
 |   |-- generate_foundation.py    # Step 1 -- 450 events x 110 users Cartesian grid
@@ -132,6 +145,7 @@ WAVE/
 |   |-- evaluate_extended_metrics.py  # Step 6 -- metrics CSV, barcharts, RER
 |   |-- test_weather_signal.py    # Isolated blind vs contextual experiment
 |   |-- cross_validate.py         # K-fold cross-validation
+|   |-- scenario_validation.py    # NEW -- calibrate simulator on survey scenarios
 |
 |-- legacy/                       # Archived old pipeline (pre-rebuild)
 |   |-- README_old_pipeline.md    # Old README with old results
@@ -214,6 +228,9 @@ python src/evaluate_visuals.py
 #                     results/metrics_subgroup_extreme_weather.csv
 #                     results/pr_curve_comparison.png
 python src/evaluate_extended_metrics.py
+
+# Optional -- Scenario calibration check (survey hypotheticals)
+python src/scenario_validation.py
 ```
 
 ---
@@ -233,6 +250,10 @@ Only the feature set differs between Baseline and Contextual:
 | User weather sensitivity profile | **No** | **Yes** |
 | Algorithm | RandomForest | RF / LightGBM / XGBoost |
 
+Strict baseline:
+- `RF Baseline (strict)` additionally drops `location`, `climate_zone`, and `event_month`\n
+  to remove geography/season proxies for weather, making it a stricter control.
+
 ### Reproducibility Guarantees
 
 * **Random seed:** `random_state=42` / `numpy.random.default_rng(42)` throughout.
@@ -248,7 +269,7 @@ Weather is fetched from the **Open-Meteo Historical Archive API** (free, no key 
 One API call per city covers the full event date window for that city; 15 API calls total
 for 15 unique cities in the dataset.
 
-Fetched variables: `temperature_2m`, `precipitation`, `windspeed_10m` (hourly).
+Fetched variables (hourly): `temperature_2m`, `relative_humidity_2m`, `precipitation`, `windspeed_10m`.
 
 ---
 
