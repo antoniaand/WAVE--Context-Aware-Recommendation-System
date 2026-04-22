@@ -129,7 +129,7 @@ WAVE/
 |   |   |-- cv_results.csv
 |   |   |-- scenario_validation.csv
 |   |   |-- feature_importances.csv
-|   |-- visuals_performance/
+|   |-- visual_performance/
 |   |   |-- metrics_barchart.png
 |   |   |-- cv_comparison.png
 |   |   |-- roc_comparison.png
@@ -138,7 +138,7 @@ WAVE/
 |   |-- visuals_subgroups/
 |   |   |-- metrics_barchart_extreme_weather.png
 |   |   |-- f1_extreme_weather_slice.png
-|   |-- visuals_explainability/
+|   |-- explainability/
 |   |   |-- shap_summary_plot_lgbm.png
 |   |   |-- shap_bar_importance_lgbm.png
 |   |   |-- shap_dependence_temp_precip_lgbm.png
@@ -224,11 +224,11 @@ python src/data/simulate_labels.py
 python src/modeling/train_models.py
 
 # Step 5 -- Confusion matrices, ROC, F1 subgroup bar, XGB permutation importance
-#           Produces charts in results/visuals_performance/ and results/visuals_subgroups/
+#           Produces charts in results/visual_performance/ and results/visuals_subgroups/
 python src/evaluation/evaluate_visuals.py
 
 # Step 6 -- Global + subgroup metrics tables, barcharts, Relative Error Reduction
-#           Produces metrics in results/metrics/ and charts in results/visuals...
+#           Produces metrics in results/metrics/ and charts in results/visual_performance...
 python src/evaluation/evaluate_extended_metrics.py
 
 # Optional -- Scenario calibration check (survey hypotheticals)
