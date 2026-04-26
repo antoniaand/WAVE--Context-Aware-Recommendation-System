@@ -17,7 +17,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.config import settings
-from app.core.database import get_supabase_client, get_user_profile, upsert_user_profile
+from app.core.database import get_supabase_client, get_supabase_admin_client, get_user_profile, upsert_user_profile
 from app.core.security import create_access_token, get_current_user
 from app.models.recommendation import (
     LoginRequest,
@@ -52,14 +52,17 @@ async def register(body: RegisterRequest):
       2. Upsert a profile row in public.users with the full preference profile
       3. Issue a short-lived JWT (using app SECRET_KEY) for immediate use
     """
-    client = get_supabase_client()
+    admin = get_supabase_admin_client()
 
     try:
-        auth_response = client.auth.sign_up(
-            {"email": body.email, "password": body.password}
-        )
+        # Use admin API so the account is immediately confirmed — no email verification required.
+        auth_response = admin.auth.admin.create_user({
+            "email": body.email,
+            "password": body.password,
+            "email_confirm": True,
+        })
     except Exception as exc:
-        logger.error("Supabase sign_up failed: %s", exc)
+        logger.error("Supabase admin create_user failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Registration failed: {exc}",
@@ -69,7 +72,7 @@ async def register(body: RegisterRequest):
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Supabase returned no user object. Check email confirmation settings.",
+            detail="Supabase returned no user object.",
         )
 
     user_id = str(user.id)
