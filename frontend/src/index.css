@@ -1,0 +1,499 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=Outfit:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+/* ── Tailwind v4 theme tokens ──────────────────────────────── */
+@theme {
+  --font-family-display: "Syne", sans-serif;
+  --font-family-body: "Outfit", sans-serif;
+
+  --color-wave-900: #03045e;
+  --color-wave-800: #023e8a;
+  --color-wave-700: #0077b6;
+  --color-wave-600: #0096c7;
+  --color-wave-500: #00b4d8;
+  --color-wave-400: #48cae4;
+  --color-wave-300: #90e0ef;
+  --color-wave-200: #ade8f4;
+  --color-wave-100: #caf0f8;
+}
+
+/* ── Semantic CSS variables (dark default) ─────────────────── */
+:root {
+  --bg:            #03045e;
+  --bg-card:       rgba(2, 30, 80, 0.50);
+  --bg-input:      rgba(3, 4, 94, 0.35);
+  --border-card:   rgba(72, 202, 228, 0.20);
+  --border-input:  rgba(72, 202, 228, 0.18);
+  --border-focus:  rgba(72, 202, 228, 0.55);
+  --glow-focus:    rgba(0, 180, 216, 0.14);
+  --text-primary:  #caf0f8;
+  --text-secondary:#90e0ef;
+  --text-muted:    rgba(144, 224, 239, 0.45);
+  --text-label:    #ade8f4;
+  --accent:        #0096c7;
+  --accent-light:  #00b4d8;
+  --orb1:          #0077b6;
+  --orb2:          #0096c7;
+  --orb3:          #023e8a;
+  --btn-from:      #0077b6;
+  --btn-to:        #00b4d8;
+  --btn-shadow:    rgba(0, 150, 199, 0.45);
+  --error-bg:      rgba(255, 60, 60, 0.12);
+  --error-border:  rgba(255, 100, 100, 0.30);
+  --error-text:    #fca5a5;
+  --tab-active-bg: rgba(72, 202, 228, 0.14);
+  --tab-text:      rgba(144, 224, 239, 0.55);
+}
+
+[data-theme="light"] {
+  --bg:            #f0f9ff;
+  --bg-card:       rgba(255, 255, 255, 0.78);
+  --bg-input:      rgba(255, 255, 255, 0.92);
+  --border-card:   rgba(0, 150, 199, 0.18);
+  --border-input:  rgba(0, 150, 199, 0.22);
+  --border-focus:  #0096c7;
+  --glow-focus:    rgba(0, 150, 199, 0.10);
+  --text-primary:  #03045e;
+  --text-secondary:#0077b6;
+  --text-muted:    rgba(2, 62, 138, 0.38);
+  --text-label:    #0077b6;
+  --accent:        #0077b6;
+  --accent-light:  #0096c7;
+  --orb1:          #ade8f4;
+  --orb2:          #caf0f8;
+  --orb3:          #90e0ef;
+  --btn-shadow:    rgba(0, 119, 182, 0.28);
+  --error-bg:      rgba(220, 38, 38, 0.06);
+  --error-border:  rgba(220, 38, 38, 0.20);
+  --error-text:    #dc2626;
+  --tab-active-bg: rgba(0, 150, 199, 0.10);
+  --tab-text:      rgba(0, 119, 182, 0.50);
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Outfit", sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* ── Ocean background ──────────────────────────────────────── */
+.ocean-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--bg);
+  transition: background 0.4s ease;
+}
+
+.ocean-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+}
+
+.orb-1 {
+  width: min(600px, 80vw);
+  height: min(600px, 80vw);
+  background: var(--orb1);
+  opacity: 0.45;
+  top: -15%;
+  left: -10%;
+  animation: drift1 22s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: min(500px, 70vw);
+  height: min(500px, 70vw);
+  background: var(--orb2);
+  opacity: 0.35;
+  bottom: -12%;
+  right: -8%;
+  animation: drift2 28s ease-in-out infinite;
+}
+
+.orb-3 {
+  width: min(350px, 60vw);
+  height: min(350px, 60vw);
+  background: var(--orb3);
+  opacity: 0.30;
+  top: 45%;
+  left: 40%;
+  transform: translate(-50%, -50%);
+  animation: drift3 35s ease-in-out infinite;
+}
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30%       { transform: translate(60px, 80px) scale(1.08); }
+  60%       { transform: translate(-40px, 120px) scale(0.94); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  35%       { transform: translate(-70px, -90px) scale(1.10); }
+  70%       { transform: translate(40px, -50px) scale(0.92); }
+}
+@keyframes drift3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%       { transform: translate(-50%, -50%) scale(1.35); }
+}
+
+/* ── Auth page layout ──────────────────────────────────────── */
+.auth-page {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.auth-center {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 440px;
+}
+
+/* ── Auth card ─────────────────────────────────────────────── */
+.auth-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--border-card);
+  border-radius: 24px;
+  padding: clamp(28px, 6vw, 44px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  transition: background 0.4s, border-color 0.4s;
+}
+
+/* ── WAVE logo ─────────────────────────────────────────────── */
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.wave-symbol {
+  font-size: 2rem;
+  background: linear-gradient(135deg, var(--accent) 0%, #48cae4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.wave-wordmark {
+  font-family: "Syne", sans-serif;
+  font-weight: 800;
+  font-size: 2.25rem;
+  letter-spacing: 0.14em;
+  background: linear-gradient(135deg, #48cae4 0%, #caf0f8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+[data-theme="light"] .wave-wordmark {
+  background: linear-gradient(135deg, #0077b6 0%, #0096c7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.auth-tagline {
+  font-family: "Outfit", sans-serif;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0 0 28px;
+  letter-spacing: 0.01em;
+}
+
+/* ── Tab switcher ──────────────────────────────────────────── */
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 28px;
+}
+
+[data-theme="light"] .auth-tabs {
+  background: rgba(0, 119, 182, 0.07);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 8px 0;
+  text-align: center;
+  font-family: "Outfit", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 9px;
+  cursor: pointer;
+  color: var(--tab-text);
+  text-decoration: none;
+  transition: all 0.22s ease;
+  border: none;
+  background: transparent;
+}
+
+.auth-tab:hover {
+  color: var(--text-primary);
+}
+
+.auth-tab--active {
+  background: var(--tab-active-bg);
+  color: var(--text-primary);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Form ──────────────────────────────────────────────────── */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-label);
+  letter-spacing: 0.02em;
+}
+
+.field-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: "Outfit", sans-serif;
+  font-size: 0.9375rem;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.field-input::placeholder { color: var(--text-muted); }
+
+.field-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--glow-focus);
+  background: var(--bg-input);
+}
+
+/* ── Password reveal wrapper ───────────────────────────────── */
+.field-password-wrap {
+  position: relative;
+}
+
+.field-password-wrap .field-input {
+  padding-right: 44px;
+}
+
+.field-eye {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.field-eye:hover { color: var(--text-secondary); }
+
+/* ── Error ─────────────────────────────────────────────────── */
+.auth-error {
+  padding: 10px 14px;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: var(--error-text);
+}
+
+/* ── Submit button ─────────────────────────────────────────── */
+.btn-ocean {
+  width: 100%;
+  padding: 13px 24px;
+  background: linear-gradient(135deg, var(--btn-from) 0%, var(--btn-to) 100%);
+  color: #fff;
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: box-shadow 0.2s;
+}
+
+.btn-ocean:hover:not(:disabled) {
+  box-shadow: 0 6px 24px var(--btn-shadow);
+}
+
+.btn-ocean:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ripple on click */
+.btn-ocean::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.4s;
+}
+.btn-ocean:active::after {
+  background: rgba(255,255,255,0.12);
+}
+
+/* ── Spinner ───────────────────────────────────────────────── */
+.btn-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-9px); }
+  30%  { transform: translateX(9px); }
+  45%  { transform: translateX(-7px); }
+  60%  { transform: translateX(7px); }
+  80%  { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+.auth-form--shake { animation: shake 0.42s ease; }
+
+/* ── Auth footer link ──────────────────────────────────────── */
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.auth-footer a {
+  color: var(--accent-light);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.auth-footer a:hover { color: var(--text-primary); }
+
+/* ── Theme toggle button ───────────────────────────────────── */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  padding: 0;
+}
+.theme-toggle:hover { color: var(--text-primary); border-color: var(--border-focus); }
+
+/* ── Divider ───────────────────────────────────────────────── */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-input);
+}
+
+/* ── Onboarding placeholder ────────────────────────────────── */
+.placeholder-page {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 10;
+}
+
+.placeholder-page h1 {
+  font-family: "Syne", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.placeholder-page p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
