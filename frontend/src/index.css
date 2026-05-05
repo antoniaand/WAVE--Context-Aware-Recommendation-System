@@ -408,6 +408,10 @@ body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
 @keyframes shake {
   0%   { transform: translateX(0); }
   15%  { transform: translateX(-9px); }

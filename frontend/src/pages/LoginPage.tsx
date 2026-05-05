@@ -59,7 +59,7 @@ export function LoginPage() {
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail
-      setError(detail ?? 'Email sau parolă incorecte.')
+      setError(detail ?? 'Incorrect email or password.')
       triggerShake()
     } finally {
       setIsLoading(false)
@@ -95,7 +95,7 @@ export function LoginPage() {
               <span className="wave-symbol">≋</span>
               <span className="wave-wordmark">WAVE</span>
             </div>
-            <p className="auth-tagline">evenimentele tale, în contextul lor real</p>
+            <p className="auth-tagline">your events, in their real context</p>
           </motion.div>
 
           {/* ── Tab switcher ──────────────────────────────── */}
@@ -106,8 +106,8 @@ export function LoginPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.13 }}
           >
-            <span className="auth-tab auth-tab--active">Conectare</span>
-            <Link to="/register" className="auth-tab">Cont nou</Link>
+            <span className="auth-tab auth-tab--active">Sign In</span>
+            <Link to="/register" className="auth-tab">New account</Link>
           </motion.div>
 
           {/* ── Form (fades with route change) ───────────── */}
@@ -150,7 +150,7 @@ export function LoginPage() {
                     className="field-input"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="tu@exemplu.com"
+                    placeholder="you@example.com"
                     required
                     autoComplete="email"
                     autoFocus
@@ -159,7 +159,7 @@ export function LoginPage() {
 
                 {/* Password */}
                 <motion.div className="field-group" variants={item}>
-                  <label className="field-label" htmlFor="l-pass">Parolă</label>
+                  <label className="field-label" htmlFor="l-pass">Password</label>
                   <div className="field-password-wrap">
                     <input
                       id="l-pass"
@@ -175,7 +175,7 @@ export function LoginPage() {
                       type="button"
                       className="field-eye"
                       onClick={() => setShowPass(s => !s)}
-                      aria-label={showPass ? 'Ascunde parola' : 'Arată parola'}
+                      aria-label={showPass ? 'Hide password' : 'Show password'}
                     >
                       {showPass ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
@@ -194,7 +194,7 @@ export function LoginPage() {
                   >
                     {isLoading
                       ? <span className="btn-spinner" />
-                      : <><span>Conectează-te</span><ArrowRight /></>
+                      : <><span>Sign In</span><ArrowRight /></>
                     }
                   </motion.button>
                 </motion.div>
@@ -202,8 +202,8 @@ export function LoginPage() {
             </form>
 
             <p className="auth-footer">
-              Ești nou pe WAVE?{' '}
-              <Link to="/register">Creează un cont</Link>
+              New to WAVE?{' '}
+              <Link to="/register">Create an account</Link>
             </p>
           </motion.div>
         </motion.div>

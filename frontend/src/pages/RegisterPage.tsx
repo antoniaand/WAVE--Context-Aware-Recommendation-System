@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useAuth } from '@/hooks/useAuth'
 import { OceanBackground } from '@/components/OceanBackground'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -33,12 +34,15 @@ const item = {
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const { register } = useAuth()
 
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
   const [confirm, setConfirm]     = useState('')
   const [showPass, setShowPass]   = useState(false)
   const [showConf, setShowConf]   = useState(false)
+  const [gdprChecked, setGdprChecked] = useState(false)
+  const [academicChecked, setAcademicChecked] = useState(true)
   const [error, setError]         = useState('')
   const [shake, setShake]         = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -52,37 +56,37 @@ export function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    if (!gdprChecked) {
+      setError('You must accept the Terms & Conditions to continue.')
+      triggerShake()
+      return
+    }
     if (password.length < 6) {
-      setError('Parola trebuie să aibă cel puțin 6 caractere.')
+      setError('Password must be at least 6 characters.')
       triggerShake()
       return
     }
     if (password !== confirm) {
-      setError('Parolele nu se potrivesc.')
+      setError('Passwords do not match.')
       triggerShake()
       return
     }
 
     setIsLoading(true)
     try {
-      /* Pass credentials to onboarding via router state.
-         The actual register API call happens at the END of onboarding,
-         once the user fills in their preference profile. */
-      navigate('/onboarding', {
-        state: { email, password },
-        replace: false,
-      })
+      // Register immediately — no profile required. Profile is set in onboarding.
+      await register(email, password)
+      navigate('/onboarding', { replace: false })
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail
-      setError(detail ?? 'Nu s-a putut crea contul. Încearcă din nou.')
+      setError(detail ?? 'Could not create account. Please try again.')
       triggerShake()
     } finally {
       setIsLoading(false)
     }
   }
 
-  /* Password strength indicator */
   const strength = (() => {
     if (!password) return 0
     let s = 0
@@ -93,7 +97,7 @@ export function RegisterPage() {
     return s
   })()
 
-  const strengthLabel = ['', 'Slabă', 'Acceptabilă', 'Bună', 'Puternică'][strength]
+  const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'][strength]
   const strengthColor = ['', '#ef4444', '#f59e0b', '#0096c7', '#22c55e'][strength]
 
   return (
@@ -108,7 +112,6 @@ export function RegisterPage() {
       <ThemeToggle />
 
       <div className="auth-center">
-        {/* layoutId="auth-card" morphs from LoginPage card */}
         <motion.div
           className="auth-card"
           layoutId="auth-card"
@@ -116,20 +119,18 @@ export function RegisterPage() {
           transition={{ type: 'spring', stiffness: 280, damping: 28 }}
         >
           {/* ── Brand ────────────────────────────────────── */}
-          <motion.div
-            layoutId="auth-brand"
-          >
+          <motion.div layoutId="auth-brand">
             <div className="auth-logo">
               <span className="wave-symbol">≋</span>
               <span className="wave-wordmark">WAVE</span>
             </div>
-            <p className="auth-tagline">evenimentele tale, în contextul lor real</p>
+            <p className="auth-tagline">your events, in their real context</p>
           </motion.div>
 
           {/* ── Tab switcher ──────────────────────────────── */}
           <motion.div className="auth-tabs" layoutId="auth-tabs">
-            <Link to="/login" className="auth-tab">Conectare</Link>
-            <span className="auth-tab auth-tab--active">Cont nou</span>
+            <Link to="/login" className="auth-tab">Sign In</Link>
+            <span className="auth-tab auth-tab--active">New account</span>
           </motion.div>
 
           {/* ── Form ─────────────────────────────────────── */}
@@ -170,7 +171,7 @@ export function RegisterPage() {
                     className="field-input"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="tu@exemplu.com"
+                    placeholder="you@example.com"
                     required
                     autoComplete="email"
                     autoFocus
@@ -179,7 +180,7 @@ export function RegisterPage() {
 
                 {/* Password */}
                 <motion.div className="field-group" variants={item}>
-                  <label className="field-label" htmlFor="r-pass">Parolă</label>
+                  <label className="field-label" htmlFor="r-pass">Password</label>
                   <div className="field-password-wrap">
                     <input
                       id="r-pass"
@@ -187,7 +188,7 @@ export function RegisterPage() {
                       className="field-input"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="Min. 6 caractere"
+                      placeholder="Min. 6 characters"
                       required
                       autoComplete="new-password"
                     />
@@ -195,7 +196,6 @@ export function RegisterPage() {
                       {showPass ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
                   </div>
-                  {/* Strength bar */}
                   {password.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
@@ -220,7 +220,7 @@ export function RegisterPage() {
 
                 {/* Confirm password */}
                 <motion.div className="field-group" variants={item}>
-                  <label className="field-label" htmlFor="r-conf">Confirmă parola</label>
+                  <label className="field-label" htmlFor="r-conf">Confirm password</label>
                   <div className="field-password-wrap">
                     <input
                       id="r-conf"
@@ -228,12 +228,10 @@ export function RegisterPage() {
                       className="field-input"
                       value={confirm}
                       onChange={e => setConfirm(e.target.value)}
-                      placeholder="Repetă parola"
+                      placeholder="Repeat password"
                       required
                       autoComplete="new-password"
-                      style={confirm.length > 0 && confirm !== password ? {
-                        borderColor: 'rgba(239,68,68,0.5)',
-                      } : {}}
+                      style={confirm.length > 0 && confirm !== password ? { borderColor: 'rgba(239,68,68,0.5)' } : {}}
                     />
                     <button type="button" className="field-eye" onClick={() => setShowConf(s => !s)} aria-label="Toggle confirm">
                       {showConf ? <EyeOffIcon /> : <EyeIcon />}
@@ -245,9 +243,34 @@ export function RegisterPage() {
                       animate={{ opacity: 1 }}
                       style={{ fontSize: '0.75rem', color: '#22c55e', marginTop: 4 }}
                     >
-                      ✓ Parolele se potrivesc
+                      ✓ Passwords match
                     </motion.span>
                   )}
+                </motion.div>
+
+                {/* GDPR consent */}
+                <motion.div variants={item} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    <input
+                      type="checkbox"
+                      checked={gdprChecked}
+                      onChange={e => setGdprChecked(e.target.checked)}
+                      style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+                    />
+                    I have read and agree to the{' '}
+                    <span style={{ color: 'var(--accent-light)', textDecoration: 'underline', cursor: 'pointer' }}>Terms & Conditions</span>
+                    {' '}and{' '}
+                    <span style={{ color: 'var(--accent-light)', textDecoration: 'underline', cursor: 'pointer' }}>Privacy Policy</span>.
+                  </label>
+                  <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    <input
+                      type="checkbox"
+                      checked={academicChecked}
+                      onChange={e => setAcademicChecked(e.target.checked)}
+                      style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+                    />
+                    I consent to the anonymous use of my responses for academic research purposes.
+                  </label>
                 </motion.div>
 
                 {/* Submit */}
@@ -262,19 +285,19 @@ export function RegisterPage() {
                   >
                     {isLoading
                       ? <span className="btn-spinner" />
-                      : <><span>Continuă</span><ArrowRight /></>
+                      : <><span>Continue</span><ArrowRight /></>
                     }
                   </motion.button>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 10, textAlign: 'center' }}>
-                    Vei completa preferințele în pasul următor
+                    You can set your event preferences in the next step
                   </p>
                 </motion.div>
               </motion.div>
             </form>
 
             <p className="auth-footer">
-              Ai deja cont?{' '}
-              <Link to="/login">Conectează-te</Link>
+              Already have an account?{' '}
+              <Link to="/login">Sign in</Link>
             </p>
           </motion.div>
         </motion.div>

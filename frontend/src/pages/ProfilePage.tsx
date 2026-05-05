@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { OceanBackground } from '@/components/OceanBackground'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/hooks/useAuth'
-import { encodeProfile, type SurveyAnswers } from '@/utils/profileEncoding'
+import { encodeProfile, decodeProfile, type SurveyAnswers } from '@/utils/profileEncoding'
 import {
   STEP_LABELS,
   DEFAULT_ANSWERS,
@@ -14,27 +13,23 @@ import {
   StepReview,
 } from '@/components/SurveyForm'
 
-/* ── Slide animation ──────────────────────────────────────── */
-
 const slide = {
   enter:  (d: number) => ({ opacity: 0, x: d * 40 }),
   center: { opacity: 1, x: 0 },
   exit:   (d: number) => ({ opacity: 0, x: d * -40 }),
 }
 
-/* ── Page ─────────────────────────────────────────────────── */
+export function ProfilePage() {
+  const { user, updateProfile } = useAuth()
 
-export function OnboardingPage() {
-  const navigate = useNavigate()
-  const { updateProfile } = useAuth()
+  const initial = user?.profile ? decodeProfile(user.profile) : DEFAULT_ANSWERS
 
-  // step 0 = hook screen; 1–4 = survey steps
-  const [step, setStep] = useState(0)
-  const [dir,  setDir]  = useState(1)
-
-  const [answers,   setAnswers]   = useState<SurveyAnswers>(DEFAULT_ANSWERS)
+  const [step,      setStep]      = useState(1) // start at step 1 (no hook screen)
+  const [dir,       setDir]       = useState(1)
+  const [answers,   setAnswers]   = useState<SurveyAnswers>(initial)
   const [isLoading, setIsLoading] = useState(false)
   const [error,     setError]     = useState('')
+  const [success,   setSuccess]   = useState(false)
 
   const set = useCallback(
     <K extends keyof SurveyAnswers>(k: K, v: SurveyAnswers[K]) =>
@@ -42,12 +37,11 @@ export function OnboardingPage() {
     [],
   )
 
-  const skip = () => navigate('/home', { replace: true })
-
   const goTo = (next: number, d: number) => {
     setDir(d)
     setStep(next)
     setError('')
+    setSuccess(false)
   }
 
   const goForward = useCallback(() => {
@@ -59,9 +53,10 @@ export function OnboardingPage() {
   const submit = async () => {
     setIsLoading(true)
     setError('')
+    setSuccess(false)
     try {
       await updateProfile(encodeProfile(answers))
-      navigate('/home', { replace: true })
+      setSuccess(true)
     } catch {
       setError('Failed to save your profile. Please try again.')
     } finally {
@@ -69,71 +64,14 @@ export function OnboardingPage() {
     }
   }
 
-  /* ── Hook screen (step 0) ─────────────────────────────── */
-
-  if (step === 0) {
-    return (
-      <motion.div
-        className="auth-page"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-      >
-        <OceanBackground />
-        <ThemeToggle />
-
-        <div className="auth-center" style={{ position: 'relative', zIndex: 10 }}>
-          <motion.div
-            className="auth-card"
-            initial={{ opacity: 0, y: 28, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.05 }}
-            style={{ textAlign: 'center' }}
-          >
-            <div className="auth-logo" style={{ justifyContent: 'center', marginBottom: 10 }}>
-              <span className="wave-symbol">≋</span>
-              <span className="wave-wordmark">WAVE</span>
-            </div>
-
-            <h2 style={{ fontFamily: '"Syne", sans-serif', fontSize: '1.375rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>
-              Personalise your experience
-            </h2>
-
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 28px' }}>
-              Answer a few quick questions so WAVE can recommend the right events for you — based on
-              your preferences and how weather affects your plans.
-            </p>
-
-            <motion.button
-              type="button"
-              className="btn-ocean"
-              onClick={() => goTo(1, 1)}
-              whileHover={{ scale: 1.025 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 22 }}
-            >
-              Let's start →
-            </motion.button>
-
-            <p className="auth-footer" style={{ marginTop: 16 }}>
-              <button type="button" onClick={skip} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8125rem' }}>
-                Skip for later →
-              </button>
-            </p>
-          </motion.div>
-        </div>
-      </motion.div>
-    )
-  }
-
-  /* ── Steps 1–4 ───────────────────────────────────────── */
-
-  const stepIdx        = step - 1
   const isScenarioStep = step === 3
   const isReviewStep   = step === 4
+  const stepIdx        = step - 1
 
   return (
     <motion.div
       className="auth-page"
+      style={{ alignItems: 'flex-start', paddingTop: 40 }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
@@ -148,14 +86,15 @@ export function OnboardingPage() {
           transition={{ type: 'spring', stiffness: 260, damping: 22 }}
           style={{ maxHeight: '90dvh', overflowY: 'auto' }}
         >
-          {/* Logo */}
+          {/* Header */}
           <div className="auth-logo" style={{ marginBottom: 4 }}>
             <span className="wave-symbol">≋</span>
             <span className="wave-wordmark">WAVE</span>
           </div>
+          <p className="auth-tagline">Your profile preferences</p>
 
           {/* Progress bar */}
-          <div style={{ display: 'flex', gap: 6, margin: '16px 0 24px' }}>
+          <div style={{ display: 'flex', gap: 6, margin: '0 0 24px' }}>
             {STEP_LABELS.map((label, i) => (
               <div key={label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <div style={{
@@ -163,7 +102,7 @@ export function OnboardingPage() {
                   background: i < stepIdx ? 'var(--accent)' : i === stepIdx ? 'var(--accent-light)' : 'var(--border-input)',
                   transition: 'background 0.3s',
                 }} />
-                <span style={{ fontSize: '0.625rem', color: i === stepIdx ? 'var(--accent-light)' : 'var(--text-muted)', fontWeight: i === stepIdx ? 600 : 400, transition: 'color 0.3s' }}>
+                <span style={{ fontSize: '0.625rem', color: i === stepIdx ? 'var(--accent-light)' : 'var(--text-muted)', fontWeight: i === stepIdx ? 600 : 400 }}>
                   {label}
                 </span>
               </div>
@@ -188,6 +127,29 @@ export function OnboardingPage() {
             </motion.div>
           </AnimatePresence>
 
+          {/* Success toast */}
+          <AnimatePresence>
+            {success && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  marginTop: 16,
+                  padding: '10px 14px',
+                  background: 'rgba(0,150,80,0.15)',
+                  border: '1px solid rgba(0,200,100,0.3)',
+                  borderRadius: 10,
+                  fontSize: '0.875rem',
+                  color: '#4ade80',
+                }}
+              >
+                ✓ Profile saved successfully.
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Error */}
           {error && (
             <motion.div
               className="auth-error"
@@ -202,13 +164,15 @@ export function OnboardingPage() {
           {/* Navigation */}
           {!isScenarioStep && (
             <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-              <button
-                type="button"
-                onClick={() => goTo(step - 1, -1)}
-                style={{ flex: 1, padding: '11px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-input)', border: '1.5px solid var(--border-input)', color: 'var(--text-secondary)', fontFamily: 'inherit', fontSize: '0.9rem' }}
-              >
-                ← Back
-              </button>
+              {step > 1 && (
+                <button
+                  type="button"
+                  onClick={() => goTo(step - 1, -1)}
+                  style={{ flex: 1, padding: '11px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-input)', border: '1.5px solid var(--border-input)', color: 'var(--text-secondary)', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                >
+                  ← Back
+                </button>
+              )}
               <motion.button
                 type="button"
                 className="btn-ocean"
@@ -219,7 +183,7 @@ export function OnboardingPage() {
                 whileTap={{ scale: isLoading ? 1 : 0.97 }}
                 transition={{ type: 'spring', stiffness: 420, damping: 22 }}
               >
-                {isLoading ? <span className="btn-spinner" /> : isReviewStep ? 'Create Profile →' : 'Continue →'}
+                {isLoading ? <span className="btn-spinner" /> : isReviewStep ? 'Save Profile →' : 'Continue →'}
               </motion.button>
             </div>
           )}
@@ -235,12 +199,6 @@ export function OnboardingPage() {
               </button>
             </div>
           )}
-
-          <p className="auth-footer" style={{ marginTop: 14 }}>
-            <button type="button" onClick={skip} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8125rem' }}>
-              Skip for later →
-            </button>
-          </p>
         </motion.div>
       </div>
     </motion.div>

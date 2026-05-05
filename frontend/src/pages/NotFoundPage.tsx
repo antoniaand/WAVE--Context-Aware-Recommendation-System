@@ -21,10 +21,10 @@ export function NotFoundPage() {
         >
           <p style={{ fontSize: '5rem', margin: '0 0 8px', lineHeight: 1 }}>404</p>
           <p className="wave-wordmark" style={{ fontSize: '1.5rem', display: 'block', marginBottom: 8 }}>
-            Pagina nu există
+            Page not found
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: 28 }}>
-            S-a rătăcit în adâncuri.
+            Lost in the depths.
           </p>
           <Link to="/">
             <motion.button
@@ -33,7 +33,7 @@ export function NotFoundPage() {
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
             >
-              Înapoi acasă
+              Back home
             </motion.button>
           </Link>
         </motion.div>
