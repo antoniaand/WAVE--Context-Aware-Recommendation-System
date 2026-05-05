@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     OPEN_METEO_FORECAST_URL: str = "https://api.open-meteo.com/v1/forecast"
     WEATHER_TIMEOUT_S: int = 15
 
+    # ── Role assignment ────────────────────────────────────────────────────────
+    ADMIN_EMAIL_DOMAIN: str = "wave.com"
+    MANAGER_EMAIL_DOMAIN: str = "eventmanager.com"
+
     # ── ML Models ─────────────────────────────────────────────────────────────
     # Paths are resolved at runtime relative to the backend directory
     MODELS_DIR: str = "../models"

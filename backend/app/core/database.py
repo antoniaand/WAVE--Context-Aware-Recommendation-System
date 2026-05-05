@@ -95,13 +95,20 @@ async def get_user_profile(user_id: str) -> Optional[dict]:
     return response.data if response.data else None
 
 
-async def upsert_user_profile(user_id: str, email: str, profile_data: dict) -> dict:
+async def upsert_user_profile(
+    user_id: str,
+    email: str,
+    profile_data: dict | None = None,
+    role: str = "user",
+) -> dict:
     """
     Insert or update a user's extended profile in the `users` table.
-    Uses upsert so that re-registrations are idempotent.
+    Profile fields are optional — callers may set only email + role on first insert.
     """
     client = get_supabase_admin_client()
-    payload = {"id": user_id, "email": email, **profile_data}
+    payload: dict = {"id": user_id, "email": email, "role": role}
+    if profile_data:
+        payload.update(profile_data)
     response = (
         client.table("users")
         .upsert(payload, on_conflict="id")
