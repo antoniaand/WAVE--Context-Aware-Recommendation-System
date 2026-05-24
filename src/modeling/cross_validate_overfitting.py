@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
- – 5-Fold Stratified Cross-Validation pentru detectia overfitting-ului.
+ – 5-Fold Group-based Cross-Validation pentru detectia overfitting-ului.
 
 Ce face:
   - Incarca train_ready.csv si aplica acelasi split 80/20 ca in train_models.py
-  - Ruleaza StratifiedKFold(5) pe X_train (NU pe tot datasetul) pentru fiecare model
+  - Ruleaza GroupKFold(5) pe X_train (NU pe tot datasetul) pentru fiecare model
   - Raporteaza CV F1 mean +/- std si Test F1 (din metrics_comparison.csv)
   - Calculeaza delta = |CV F1 mean - Test F1|:
       delta < 0.02  -> model stabil, fara overfitting
@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.metrics import f1_score
 from sklearn.pipeline import Pipeline
@@ -64,38 +65,44 @@ def make_pipeline(estimator) -> Pipeline:
 
 
 MODELS = {
+    "LR Baseline": make_pipeline(
+        LogisticRegression(C=1.0, max_iter=1000, random_state=42)
+    ),
     "RF Baseline": make_pipeline(
         RandomForestClassifier(
-            n_estimators=100, max_depth=15,
+            n_estimators=200, max_depth=15,
             min_samples_split=5, random_state=42, n_jobs=-1,
         )
     ),
+    "LR Contextual": make_pipeline(
+        LogisticRegression(C=1.0, max_iter=1000, random_state=42)
+    ),
     "RF Contextual": make_pipeline(
         RandomForestClassifier(
-            n_estimators=100, max_depth=15,
+            n_estimators=200, max_depth=15,
             min_samples_split=5, random_state=42, n_jobs=-1,
         )
     ),
     "LGBM Contextual": make_pipeline(
         LGBMClassifier(
-            n_estimators=600,
-            learning_rate=0.09271,
-            num_leaves=33,
-            min_child_samples=29,
-            random_state=42,     
-            n_jobs=-1,           
-            verbose=-1 
+            n_estimators=300,
+            learning_rate=0.05555,
+            num_leaves=32,
+            min_child_samples=17,
+            random_state=42,
+            n_jobs=-1,
+            verbose=-1,
         )
     ),
     "XGB Contextual": make_pipeline(
         XGBClassifier(
-            n_estimators=500, 
-            learning_rate=0.09099, 
-            max_depth=4, 
-            subsample=0.82365,
-            colsample_bytree=0.86967,
-            random_state=42,       
-            eval_metric="logloss" 
+            n_estimators=600,
+            learning_rate=0.03897,
+            max_depth=5,
+            subsample=0.71576,
+            colsample_bytree=0.81434,
+            random_state=42,
+            eval_metric="logloss",
         )
     ),
 }
@@ -146,7 +153,7 @@ def run_cv(X_train: pd.DataFrame, groups_train: pd.Series,
         y_val = y_train.iloc[val_idx]
 
         for name, pipeline in MODELS.items():
-            if name == "RF Baseline":
+            if name in ("RF Baseline", "LR Baseline"):
                 X_tr  = X_train[baseline_cols].iloc[tr_idx]
                 X_val = X_train[baseline_cols].iloc[val_idx]
             else:
@@ -176,7 +183,9 @@ def load_test_f1() -> dict[str, float]:
     if f1_row is None:
         return {}
     mapping = {
+        "LR Baseline":     f1_row.get("LR Baseline"),
         "RF Baseline":     f1_row.get("RF Baseline"),
+        "LR Contextual":   f1_row.get("LR Contextual"),
         "RF Contextual":   f1_row.get("RF Contextual"),
         "LGBM Contextual": f1_row.get("LGBM Contextual"),
         "XGB Contextual":  f1_row.get("XGB Contextual"),
@@ -230,7 +239,7 @@ def plot_cv_boxplot(cv_scores: dict, out_path: Path) -> None:
     ax.set_xticks(range(1, len(names) + 1))
     ax.set_xticklabels(names, fontsize=10)
     ax.set_ylabel("F1-Score (macro)", fontsize=11)
-    ax.set_title("5-Fold Stratified CV – F1 Distribution per Model", fontsize=13, fontweight="bold")
+    ax.set_title("5-Fold Group-based CV – F1 Distribution per Model", fontsize=13, fontweight="bold")
     # ax.set_ylim(0.55, 0.80)  # Removed hardcoded limits to allow auto-scaling
     ax.axhline(y=0.67, color="gray", linestyle="--", linewidth=1, label="Test F1 ref (~0.67)")
     ax.legend(fontsize=9)
@@ -244,7 +253,7 @@ def plot_cv_boxplot(cv_scores: dict, out_path: Path) -> None:
 # ─── Main ────────────────────────────────────────────────────────────────────
 def main():
     print("=" * 60)
-    print("WAVE – 5-Fold Stratified Cross-Validation")
+    print("WAVE – 5-Fold Group-based Cross-Validation")
     print("=" * 60)
 
     print("\n[1] Loading data and recreating GroupShuffleSplit (user_id)...")
