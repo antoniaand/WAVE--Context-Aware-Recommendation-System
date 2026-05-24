@@ -34,11 +34,13 @@ STRICT_BASELINE_EXTRA_DROP = {"location", "climate_zone", "event_month"}
 
 # Model registry: (display label, joblib filename, uses_weather, extra_drop_cols)
 MODEL_REGISTRY = [
-    ("RF Baseline",           "baseline_rf.joblib",        False, set()),
-    ("RF Baseline (strict)",  "baseline_strict_rf.joblib", False, STRICT_BASELINE_EXTRA_DROP),
-    ("RF Contextual",         "contextual_rf.joblib",       True, set()),
-    ("LGBM Contextual",       "lgbm_contextual.joblib",     True, set()),
-    ("XGB Contextual",        "xgb_contextual.joblib",      True, set()),
+    ("LR Baseline",           "lr_baseline.joblib",         False, set()),
+    ("RF Baseline",           "baseline_rf.joblib",         False, set()),
+    ("RF Baseline (strict)",  "baseline_strict_rf.joblib",  False, STRICT_BASELINE_EXTRA_DROP),
+    ("LR Contextual",         "lr_contextual.joblib",        True, set()),
+    ("RF Contextual",         "contextual_rf.joblib",        True, set()),
+    ("LGBM Contextual",       "lgbm_contextual.joblib",      True, set()),
+    ("XGB Contextual",        "xgb_contextual.joblib",       True, set()),
 ]
 
 

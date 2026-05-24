@@ -47,8 +47,13 @@ WEATHER_FEATURE_LABELS = {
 
 
 def plot_confusion_matrices(models_data: list, y_true: pd.Series, out_path: Path, title: str):
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    axes = axes.flatten()
+    n = len(models_data)
+    ncols = min(n, 4)
+    nrows = (n + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    axes = np.array(axes).flatten()
+    for ax in axes[n:]:
+        ax.set_visible(False)
 
     for ax, (label, y_pred) in zip(axes, models_data):
         cm = confusion_matrix(y_true, y_pred)
