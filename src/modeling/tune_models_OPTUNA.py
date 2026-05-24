@@ -3,22 +3,24 @@
 tune_models_optuna.py
 ---------------------
 Advanced Hyperparameter tuning using Optuna (Bayesian Optimization).
-Respects GroupKFold to avoid data leakage.
+Runs on the training partition only (same GroupShuffleSplit as train_models.py),
+so test users are never seen during hyperparameter search.
+Respects GroupKFold(n_splits=3) inside each trial to avoid user-identity leakage.
 
 =========================================
-REZULTATE OPTUNA:
-XGBoost Cel mai bun scor: 0.9491
-XGBoost Cei mai buni parametri: {'n_estimators': 500, 'learning_rate': 0.09099071502444517, 'max_depth': 4, 'subsample': 0.823645666957371, 'colsample_bytree': 0.869667799958888}
+REZULTATE OPTUNA (train-only split, 88 users, GroupKFold n=3):
+XGBoost Cel mai bun scor: 0.9420
+XGBoost Cei mai buni parametri: {'n_estimators': 600, 'learning_rate': 0.03896960554317975, 'max_depth': 5, 'subsample': 0.7157614170058133, 'colsample_bytree': 0.8143379520737994}
 
-LightGBM Cel mai bun scor: 0.9477
-LightGBM Cei mai buni parametri: {'n_estimators': 600, 'learning_rate': 0.09270772807912192, 'num_leaves': 33, 'min_child_samples': 29}
+LightGBM Cel mai bun scor: 0.9367
+LightGBM Cei mai buni parametri: {'n_estimators': 300, 'learning_rate': 0.05554890932386283, 'num_leaves': 32, 'min_child_samples': 17}
 =========================================
 """
 
 from pathlib import Path
 import pandas as pd
 import optuna
-from sklearn.model_selection import GroupKFold, cross_val_score
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from lightgbm import LGBMClassifier
@@ -51,7 +53,16 @@ def load_xy_groups():
 
     y = df[TARGET]
     X = df.drop(columns=[TARGET])
-    return X, y, groups
+
+    # Restrict to the training partition only — same split as train_models.py.
+    # Test users must stay invisible during hyperparameter search.
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.20, random_state=42)
+    train_idx, _ = next(gss.split(X, y, groups=groups))
+    return (
+        X.iloc[train_idx].reset_index(drop=True),
+        y.iloc[train_idx].reset_index(drop=True),
+        groups[train_idx],
+    )
 
 def main():
     X, y, groups = load_xy_groups()
