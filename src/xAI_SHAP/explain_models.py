@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import warnings
 from pathlib import Path
 
+from sklearn.model_selection import GroupShuffleSplit
+
 from src.modeling.train_models import (
     CSV_PATH,
     DROP_COLS,
@@ -22,27 +24,39 @@ RESULTS_DIR = ROOT / "results"
 MODELS_DIR = ROOT / "models"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_preprocessed_data():
+def load_test_split():
+    """
+    Load the test partition only — same GroupShuffleSplit(test_size=0.20, random_state=42)
+    as train_models.py. SHAP must be computed on held-out data so explanations reflect
+    genuine generalisation, not memorised training patterns.
+    """
     df = pd.read_csv(CSV_PATH)
     df = engineer_features(df)
     df = encode_categoricals(df)
-    
+
+    groups = df["user_id"].values
     df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
-    
+
     y = df[TARGET]
     X = df.drop(columns=[TARGET])
-    
+
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.20, random_state=42)
+    _, test_idx = next(gss.split(X, y, groups=groups))
+
+    X_test = X.iloc[test_idx].reset_index(drop=True)
+    y_test = y.iloc[test_idx].reset_index(drop=True)
+
     scaler_path = MODELS_DIR / "scaler.joblib"
     if scaler_path.exists():
         scaler = joblib.load(scaler_path)
-        X_scaled = pd.DataFrame(scaler.transform(X), columns=X.columns)
+        X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
     else:
-        X_scaled = X.copy()
-        
-    return X, X_scaled, y
+        X_test_scaled = X_test.copy()
+
+    return X_test, X_test_scaled, y_test
 
 def main():
-    X, X_scaled, y = load_preprocessed_data()
+    X, X_scaled, y = load_test_split()
     
     model_path = MODELS_DIR / "lgbm_contextual.joblib"
     lgbm_model = joblib.load(model_path)
