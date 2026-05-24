@@ -27,6 +27,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -169,26 +170,30 @@ def build_rf():
 
 def build_lgbm():
     return LGBMClassifier(
-        n_estimators=600,
-        learning_rate=0.09271,
-        num_leaves=33,
-        min_child_samples=29,
-        random_state=42,     
-        n_jobs=-1,           
-        verbose=-1           
+        n_estimators=300,
+        learning_rate=0.05555,
+        num_leaves=32,
+        min_child_samples=17,
+        random_state=42,
+        n_jobs=-1,
+        verbose=-1,
     )
 
 
 def build_xgb():
     return XGBClassifier(
-        n_estimators=500, 
-        learning_rate=0.09099, 
-        max_depth=4, 
-        subsample=0.82365,
-        colsample_bytree=0.86967,
-        random_state=42,       
-        eval_metric="logloss" 
+        n_estimators=600,
+        learning_rate=0.03897,
+        max_depth=5,
+        subsample=0.71576,
+        colsample_bytree=0.81434,
+        random_state=42,
+        eval_metric="logloss",
     )
+
+
+def build_lr():
+    return LogisticRegression(C=1.0, max_iter=1000, random_state=42)
 
 # ─── Training & Evaluation ────────────────────────────────────────────────────
 
@@ -283,30 +288,36 @@ def main():
     X_tr_base, X_te_base, X_tr_strict, X_te_strict, X_tr_ctx, X_te_ctx, base_cols, strict_cols, ctx_cols = \
         get_feature_sets(X_train, X_test)
 
-    baseline_model = train(build_rf(),   X_tr_base, y_train, "Baseline RF")
+    baseline_model = train(build_rf(),   X_tr_base,   y_train, "Baseline RF")
     strict_model   = train(build_rf(),   X_tr_strict, y_train, "Strict Baseline RF")
-    rf_ctx_model   = train(build_rf(),   X_tr_ctx,  y_train, "Contextual RF")
-    lgbm_model     = train(build_lgbm(), X_tr_ctx,  y_train, "Contextual LGBM")
-    xgb_model      = train(build_xgb(),  X_tr_ctx,  y_train, "Contextual XGBoost")
+    rf_ctx_model   = train(build_rf(),   X_tr_ctx,    y_train, "Contextual RF")
+    lgbm_model     = train(build_lgbm(), X_tr_ctx,    y_train, "Contextual LGBM")
+    xgb_model      = train(build_xgb(),  X_tr_ctx,    y_train, "Contextual XGBoost")
+    lr_base_model  = train(build_lr(),   X_tr_base,   y_train, "LR Baseline")
+    lr_ctx_model   = train(build_lr(),   X_tr_ctx,    y_train, "LR Contextual")
 
-    m_base = evaluate(baseline_model, X_te_base, y_test, "RF Baseline (no weather)")
-    m_strict = evaluate(strict_model,  X_te_strict, y_test, "RF Baseline (strict)")
-    m_rfctx = evaluate(rf_ctx_model,  X_te_ctx,  y_test, "RF Contextual")
-    m_lgbm  = evaluate(lgbm_model,    X_te_ctx,  y_test, "LGBM Contextual")
-    m_xgb   = evaluate(xgb_model,     X_te_ctx,  y_test, "XGB Contextual")
-    print_comparison([m_base, m_strict, m_rfctx, m_lgbm, m_xgb])
+    m_base   = evaluate(baseline_model, X_te_base,   y_test, "RF Baseline (no weather)")
+    m_strict = evaluate(strict_model,   X_te_strict,  y_test, "RF Baseline (strict)")
+    m_rfctx  = evaluate(rf_ctx_model,   X_te_ctx,    y_test, "RF Contextual")
+    m_lgbm   = evaluate(lgbm_model,     X_te_ctx,    y_test, "LGBM Contextual")
+    m_xgb    = evaluate(xgb_model,      X_te_ctx,    y_test, "XGB Contextual")
+    m_lrbase = evaluate(lr_base_model,  X_te_base,   y_test, "LR Baseline")
+    m_lrctx  = evaluate(lr_ctx_model,   X_te_ctx,    y_test, "LR Contextual")
+    print_comparison([m_base, m_strict, m_lrbase, m_lrctx, m_rfctx, m_lgbm, m_xgb])
 
     print_feature_importances(rf_ctx_model, ctx_cols, "RF Contextual")
     print_feature_importances(lgbm_model,   ctx_cols, "LGBM Contextual")
     print_feature_importances(xgb_model,    ctx_cols, "XGB Contextual")
 
-    save_metrics([m_base, m_strict, m_rfctx, m_lgbm, m_xgb])
+    save_metrics([m_base, m_strict, m_lrbase, m_lrctx, m_rfctx, m_lgbm, m_xgb])
 
     save_model(baseline_model, "baseline_rf.joblib")
     save_model(strict_model,   "baseline_strict_rf.joblib")
     save_model(rf_ctx_model,   "contextual_rf.joblib")
     save_model(lgbm_model,     "lgbm_contextual.joblib")
     save_model(xgb_model,      "xgb_contextual.joblib")
+    save_model(lr_base_model,  "lr_baseline.joblib")
+    save_model(lr_ctx_model,   "lr_contextual.joblib")
 
 
 if __name__ == "__main__":
