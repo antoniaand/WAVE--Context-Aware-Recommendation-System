@@ -45,7 +45,12 @@ LABEL_MAPS: dict[str, dict[str, int]] = {
         "Dubai": 5, "Helsinki": 6, "Iasi": 7, "London": 8, "Oslo": 9,
         "Phoenix": 10, "Quebec": 11, "Seattle": 12, "Seville": 13, "Timisoara": 14,
     },
-    "climate_zone": {"Cold": 0, "Hot": 1, "Moderate": 2, "Rainy": 3},
+    "climate_zone": {
+        # Capitalized — used by event_service and scrapers at inference time
+        "Cold": 0, "Hot": 1, "Moderate": 2, "Rainy": 3,
+        # Lowercase — used in training data (generate_foundation.py CITY_GROUPS keys)
+        "cold": 0, "heat": 1, "moderate": 2, "rain": 3,
+    },
 }
 
 CONTEXTUAL_FEATURE_ORDER = [
@@ -60,13 +65,14 @@ CONTEXTUAL_FEATURE_ORDER = [
 ]
 
 STRICT_FEATURE_ORDER = [
+    # 19 features — no weather cols, no location/climate_zone/event_month
+    # Matches baseline_strict_rf training (train_models.py STRICT_DROP + WEATHER_COLS removed)
     "gender", "age_range", "attendance_freq", "indoor_outdoor",
     "top_event", "rain_avoid", "cold_tolerance", "heat_sensitivity",
     "wind_sensitivity", "override_weather", "scenario_concert",
     "scenario_festival", "scenario_sports", "scenario_theatre",
     "scenario_conference", "event_type", "is_outdoor",
-    "event_hour", "weather_temp_C", "weather_humidity",
-    "weather_precip_mm", "weather_wind_speed_kmh", "event_in_preferred",
+    "event_hour", "event_in_preferred",
 ]
 
 DEFAULT_WEATHER = {

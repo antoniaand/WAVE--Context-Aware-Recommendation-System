@@ -56,8 +56,10 @@ CANONICAL_EVENT_TYPES: set[str] = {
 
 
 # ── Climate zone mapping ───────────────────────────────────────────────────────
-# Values must match ml_service.py LABEL_MAPS["climate_zone"]:
-#   {"Cold": 0, "Hot": 1, "Moderate": 2, "Rainy": 3}
+# Values must match ml_service.py LABEL_MAPS["climate_zone"].
+# Capitalized form ("Cold", "Hot", "Moderate", "Rainy") is used here and in
+# event_service.py. The LABEL_MAPS also accepts lowercase training-time aliases
+# ("cold", "heat", "moderate", "rain") so old Supabase rows are handled safely.
 
 CITY_CLIMATE: dict[str, str] = {
     # Romanian cities — temperate continental
@@ -303,12 +305,20 @@ def upsert_events(events: list[dict], source_label: str) -> dict:
         print(f"[{source_label}] No events to upsert.")
         return {"inserted": 0, "skipped": 0}
 
+    # Deduplicate within the batch — same event can appear on multiple API pages
+    seen: dict[str, dict] = {}
+    for e in events:
+        seen[e["source_key"]] = e
+    deduped = list(seen.values())
+    if len(deduped) < len(events):
+        print(f"[{source_label}] Removed {len(events) - len(deduped)} duplicate(s) before upsert.")
+
     try:
         from app.core.database import get_supabase_admin_client  # noqa: PLC0415
         client = get_supabase_admin_client()
-        client.table("events").upsert(events, on_conflict="source_key").execute()
-        print(f"[{source_label}] ✓ Upserted {len(events)} event(s) into Supabase.")
-        return {"inserted": len(events), "skipped": 0}
+        client.table("events").upsert(deduped, on_conflict="source_key").execute()
+        print(f"[{source_label}] ✓ Upserted {len(deduped)} event(s) into Supabase.")
+        return {"inserted": len(deduped), "skipped": 0}
     except Exception as exc:
         print(f"[{source_label}] ✗ Upsert failed: {exc}")
-        return {"inserted": 0, "skipped": len(events)}
+        return {"inserted": 0, "skipped": len(deduped)}

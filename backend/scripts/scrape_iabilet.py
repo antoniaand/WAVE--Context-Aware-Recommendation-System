@@ -62,11 +62,12 @@ SEL_IMAGE      = "div.image"           # container with background-image or chil
 # — Detail page — update if the site's breadcrumb or meta structure differs
 SEL_BREADCRUMB = "nav.breadcrumb a, .breadcrumb a, ol.breadcrumb li a"
 
-BASE_URL        = "https://www.iabilet.ro"
-LISTING_URL     = "https://www.iabilet.ro/bilete/"
+BASE_URL             = "https://www.iabilet.ro"
+# New URL structure (old /bilete/?oras= returns 404):
+LISTING_URL_TEMPLATE = "https://www.iabilet.ro/bilete-in-{city_slug}/"
 # NOTE: API endpoint is speculative — verified by opening DevTools Network tab
 # while visiting an event page and watching for XHR calls to /api/event/*
-API_EVENT_URL   = "https://www.iabilet.ro/api/event/{event_id}"
+API_EVENT_URL        = "https://www.iabilet.ro/api/event/{event_id}"
 MAX_PAGES       = 10
 REQUEST_DELAY   = (1.5, 3.0)           # random delay range in seconds
 REQUEST_TIMEOUT = 15
@@ -92,10 +93,28 @@ _ua = UserAgent()
 _DATE_FORMATS: list[str] = ["%d %m %Y", "%d.%m.%Y", "%Y-%m-%d"]
 
 # Regex patterns reused across detail parsers
-_RE_DATE = re.compile(r"\d{1,2}\s+\w+\s+\d{4}")
-_RE_TIME = re.compile(r"\b(\d{1,2}:\d{2})\b")
-_RE_LIKABLE = re.compile(r"event/(\d+)")
-_RE_BG_URL = re.compile(r"url\(['\"]?([^'\")\s]+)['\"]?\)")
+_RE_DATE        = re.compile(r"\d{1,2}\s+\w+\s+\d{4}")           # "14 Iulie 2025"
+_RE_DATE_NO_YR  = re.compile(r"(\d{1,2})\s+(\w+)")               # "20 mai" (no year)
+_RE_ORA         = re.compile(r"\bora\s+(\d{1,2}):(\d{2})")       # "ora 18:30"
+_RE_TIME        = re.compile(r"\b(\d{1,2}:\d{2})\b")
+_RE_LIKABLE     = re.compile(r"event/(\d+)")
+_RE_BG_URL      = re.compile(r"url\(['\"]?([^'\")\s]+)['\"]?\)")
+
+# Keyword → event type fallback (used when category cannot be read from the page)
+_KEYWORD_CATEGORY: list[tuple[str, list[str]]] = [
+    ("Festival",   ["festival", "festiv"]),
+    ("Sports",     ["sport", "fotbal", "baschet", "tenis", "meci", "liga", "cupa", "maraton", "marathon"]),
+    ("Theatre",    ["teatru", "theatre", "opera", "balet", "spectacol", "piesa", "dans", "ballet"]),
+    ("Conference", ["conferin", "business", "summit", "seminar", "workshop", "expo"]),
+]
+
+
+def _infer_category_from_name(name: str) -> str:
+    name_lower = name.lower()
+    for cat, keywords in _KEYWORD_CATEGORY:
+        if any(kw in name_lower for kw in keywords):
+            return cat
+    return "Concert"  # iabilet is dominated by concerts/music events
 
 
 # ── HTTP helpers ───────────────────────────────────────────────────────────────
@@ -204,24 +223,22 @@ def _parse_listing_stub(card: BeautifulSoup) -> Optional[dict]:
         Dict with keys {event_name, href, event_id, image_url}, or None if
         the card is missing the required title or link.
     """
-    # ── Title ──────────────────────────────────────────────────────────────────
-    title_el = card.select_one(SEL_TITLE)
-    if not title_el:
-        logger.warning("Listing card missing title element, skipping.")
+    # ── Title + Link from <a title="..."> inside the card ─────────────────────
+    # iabilet encodes the event name in the <a title> attribute; href points to
+    # the detail page.  Strip tracking params (?ica_source=…) from the href.
+    link_el = card.find("a", href=lambda h: h and "/bilete-" in h)
+    if not link_el:
+        logger.warning("Listing card missing event link, skipping.")
         return None
-    raw_title = title_el.get_text(strip=True)
+    href = link_el.get("href", "").split("?")[0].strip()
+    if not href:
+        logger.warning("Listing card <a> has no href, skipping.")
+        return None
+    raw_title = link_el.get("title", "").strip()
+    if not raw_title:
+        raw_title = link_el.get_text(strip=True)
     if not raw_title:
         logger.warning("Listing card has empty title, skipping.")
-        return None
-
-    # ── Link ───────────────────────────────────────────────────────────────────
-    link_el = card.select_one(SEL_LINK)
-    if not link_el:
-        logger.warning("Listing card missing <a> for '%s', skipping.", raw_title)
-        return None
-    href = link_el.get("href", "").strip()
-    if not href:
-        logger.warning("Listing card <a> has no href for '%s', skipping.", raw_title)
         return None
 
     # ── event_id from data-likable-item ───────────────────────────────────────
@@ -463,27 +480,55 @@ def _parse_detail_html(soup: BeautifulSoup) -> dict:
         "raw_category":   None,
     }
 
-    # ── Date via full-text regex scan ──────────────────────────────────────────
-    date_node = soup.find(string=_RE_DATE)
-    if date_node:
-        m = _RE_DATE.search(date_node)
-        if m:
-            parsed = parse_romanian_date(m.group(), "")
-            if parsed:
-                result["event_date_str"], result["event_hour"] = parsed
-
-    # ── Time via full-text regex scan (only if date was found) ────────────────
-    if result["event_date_str"]:
-        time_node = soup.find(string=_RE_TIME)
-        if time_node:
-            m = _RE_TIME.search(time_node)
-            if m:
+    # ── Date from div.date ("miercuri, 20 mai, ora 18:30" — no year) ──────────
+    date_div = soup.select_one("div.date")
+    if date_div:
+        date_text = date_div.get_text(" ", strip=True)
+        m_dm = _RE_DATE_NO_YR.search(date_text)
+        if m_dm:
+            day_num    = int(m_dm.group(1))
+            month_name = m_dm.group(2).lower().rstrip(",")
+            month_num  = ROMANIAN_MONTHS.get(month_name)
+            if month_num:
+                today_local  = date.today()
+                inferred_yr  = today_local.year
                 try:
-                    result["event_hour"] = int(m.group(1).split(":")[0])
-                except (ValueError, IndexError):
+                    candidate = date(inferred_yr, int(month_num), day_num)
+                    if candidate < today_local:
+                        inferred_yr += 1
+                        candidate   = date(inferred_yr, int(month_num), day_num)
+                    result["event_date_str"] = candidate.isoformat()
+                except ValueError:
                     pass
+        m_ora = _RE_ORA.search(date_text)
+        if m_ora:
+            result["event_hour"] = int(m_ora.group(1))
 
-    # ── Breadcrumbs: city and category ────────────────────────────────────────
+    # ── Fallback: full-text scan for "14 Iulie 2025" style dates ──────────────
+    if not result["event_date_str"]:
+        date_node = soup.find(string=_RE_DATE)
+        if date_node:
+            m = _RE_DATE.search(date_node)
+            if m:
+                parsed = parse_romanian_date(m.group(), "")
+                if parsed:
+                    result["event_date_str"], result["event_hour"] = parsed
+        if result["event_date_str"]:
+            time_node = soup.find(string=_RE_TIME)
+            if time_node:
+                m = _RE_TIME.search(time_node)
+                if m:
+                    try:
+                        result["event_hour"] = int(m.group(1).split(":")[0])
+                    except (ValueError, IndexError):
+                        pass
+
+    # ── Venue from div.location ───────────────────────────────────────────────
+    location_div = soup.select_one("div.location")
+    if location_div:
+        result["venue_name"] = location_div.get_text(strip=True)[:200]
+
+    # ── Breadcrumbs: city and category (may not exist on new site) ────────────
     for link in soup.select(SEL_BREADCRUMB):
         text = link.get_text(strip=True).lower()
         if result["raw_category"] is None and IABILET_CATEGORY_MAP.get(text):
@@ -601,12 +646,11 @@ def _build_event(
 
     # ── Category ───────────────────────────────────────────────────────────────
     raw_category = (detail.get("raw_category") or "").strip().lower()
-    event_type = IABILET_CATEGORY_MAP.get(raw_category)
+    event_type   = IABILET_CATEGORY_MAP.get(raw_category)
     if event_type is None:
-        logger.warning(
-            "Unmapped category '%s' for '%s', skipping.", raw_category, stub["event_name"]
-        )
-        return None
+        # iabilet detail pages no longer expose breadcrumbs/category — infer
+        # from the event name using keyword matching; default is "Concert".
+        event_type = _infer_category_from_name(stub["event_name"])
 
     # ── Venue and outdoor flag ─────────────────────────────────────────────────
     venue_name: str = (detail.get("venue_name") or "").strip()
@@ -678,7 +722,7 @@ def scrape_iabilet(cities: list[str] | None = None) -> dict:
         seen_keys: set[str]   = set()
 
         for page in range(1, MAX_PAGES + 1):
-            url = f"{LISTING_URL}?oras={city_slug}&page={page}"
+            url = LISTING_URL_TEMPLATE.format(city_slug=city_slug) + f"?page={page}"
             logger.info("%s page %d → %s", city, page, url)
 
             # ── Phase 1: fetch listing page ────────────────────────────────────
