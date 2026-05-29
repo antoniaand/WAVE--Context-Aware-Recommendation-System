@@ -63,7 +63,14 @@ class RecommendRequest(BaseModel):
     user_id:      Optional[str]         = Field(None)
     user_profile: Optional[UserProfile] = Field(None)
 
+    # Coordinate-based location (preferred — supports any point on the map)
+    lat:          Optional[float] = Field(None, ge=-90,   le=90,  examples=[44.43])
+    lng:          Optional[float] = Field(None, ge=-180,  le=180, examples=[26.10])
+    display_name: Optional[str]   = Field(None, examples=["Bucharest"])
+
+    # Legacy city string — kept for backward compat, resolved to coords internally
     city:    Optional[str] = Field(None, examples=["Bucharest"])
+
     date:    Optional[str] = Field(None, examples=["2026-05-10"])
     hour:    Optional[int] = Field(12, ge=0, le=23)
     top_n:   int           = Field(10, ge=1, le=50)
