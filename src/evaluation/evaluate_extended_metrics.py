@@ -134,14 +134,16 @@ def relative_error_reduction(score_base: float, score_ctx: float, name: str = "s
 def print_rer_block(
     label: str,
     m_base: dict,
-    m_xgb: dict,
+    m_ctx: dict,
+    base_name: str = "RF Baseline",
+    ctx_name: str = "XGB Contextual",
 ):
-    print(f"\n--- Relative Error Reduction: RF Baseline vs XGB Contextual ({label}) ---")
+    print(f"\n--- RER: {base_name} → {ctx_name} ({label}) ---")
     for key in ("Accuracy", "F1-Score"):
-        sb, sx = m_base[key], m_xgb[key]
-        rer, eb, ec = relative_error_reduction(sb, sx, key)
-        print(f"  {key}: baseline={sb:.4f}  xgb={sx:.4f}  "
-              f"err: {1-sb:.4f} -> {1-sx:.4f}  RER={rer:.1f}%")
+        sb, sc = m_base[key], m_ctx[key]
+        rer, eb, ec = relative_error_reduction(sb, sc, key)
+        print(f"  {key}: {base_name}={sb:.4f}  {ctx_name}={sc:.4f}  "
+              f"err: {1-sb:.4f} -> {1-sc:.4f}  RER={rer:.1f}%")
 
 
 def run_models_collect_metrics(X_test, slice_mask, y_test) -> dict:
@@ -225,15 +227,25 @@ def main():
         )
         print("Saved:", RESULTS_DIR / "metrics_barchart_extreme_weather.png")
 
-    # ----- Relative error reduction -----
-    if "RF Baseline" in all_metrics and "XGB Contextual" in all_metrics:
-        print_rer_block("global test", all_metrics["RF Baseline"], all_metrics["XGB Contextual"])
+    # ----- Relative error reduction (three comparisons) -----
+    _rer_keys = ("RF Baseline", "RF Baseline (strict)", "RF Contextual", "XGB Contextual")
+    if all(k in all_metrics for k in _rer_keys):
+        # 1. RF Baseline → RF Contextual  (isolates weather-feature contribution only)
+        print_rer_block("global test", all_metrics["RF Baseline"], all_metrics["RF Contextual"],
+                        "RF Baseline", "RF Contextual")
+        # 2. RF Baseline → XGB Contextual  (combined: features + algorithm)
+        print_rer_block("global test", all_metrics["RF Baseline"], all_metrics["XGB Contextual"],
+                        "RF Baseline", "XGB Contextual")
+        # 3. Strict RF Baseline → XGB Contextual  (strictest control, no geography proxies)
+        print_rer_block("global test", all_metrics["RF Baseline (strict)"], all_metrics["XGB Contextual"],
+                        "RF Baseline (strict)", "XGB Contextual")
         if n_sub > 0:
-            print_rer_block(
-                "extreme-weather slice",
-                sub_metrics["RF Baseline"],
-                sub_metrics["XGB Contextual"],
-            )
+            print_rer_block("extreme-weather slice", sub_metrics["RF Baseline"], sub_metrics["RF Contextual"],
+                            "RF Baseline", "RF Contextual")
+            print_rer_block("extreme-weather slice", sub_metrics["RF Baseline"], sub_metrics["XGB Contextual"],
+                            "RF Baseline", "XGB Contextual")
+            print_rer_block("extreme-weather slice", sub_metrics["RF Baseline (strict)"], sub_metrics["XGB Contextual"],
+                            "RF Baseline (strict)", "XGB Contextual")
 
 
 if __name__ == "__main__":

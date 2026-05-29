@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import joblib
 import shap
@@ -88,6 +89,32 @@ def main():
     shap.summary_plot(shap_values_to_plot, X, plot_type="bar", show=False)
     plt.tight_layout()
     plt.savefig(RESULTS_DIR / "shap_bar_importance_lgbm.png", dpi=300)
+    plt.close()
+
+    # Waterfall plot for a representative individual prediction.
+    # Pick the test-set row closest to the median attended_prob so it illustrates
+    # a typical (not extreme) decision rather than an outlier.
+    if isinstance(shap_values, list):
+        sv_class1 = shap_values[1]
+        base_val  = explainer.expected_value[1]
+    else:
+        sv_class1 = shap_values
+        base_val  = explainer.expected_value
+
+    row_sums = sv_class1.sum(axis=1)
+    median_sum = float(np.median(row_sums))
+    rep_idx = int(np.argmin(np.abs(row_sums - median_sum)))
+
+    explanation = shap.Explanation(
+        values       = sv_class1[rep_idx],
+        base_values  = base_val,
+        data         = X_scaled.iloc[rep_idx].values,
+        feature_names= X_scaled.columns.tolist(),
+    )
+    plt.figure(figsize=(10, 6))
+    shap.plots.waterfall(explanation, show=False)
+    plt.tight_layout()
+    plt.savefig(RESULTS_DIR / "shap_waterfall_representative_lgbm.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 if __name__ == "__main__":
