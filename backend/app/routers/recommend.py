@@ -24,6 +24,7 @@ from app.models.recommendation import (
 from app.services.event_service import get_events_for_date, get_events_for_range
 from app.services.ml_service import predict_attended_probability, preload_models  # noqa: F401
 from app.services.weather_service import get_weather_forecast
+from scripts.common import CITY_COORDS, nearest_canonical_city
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -74,8 +75,24 @@ async def recommend(body: RecommendRequest):
     else:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Provide user_id or user_profile.")
 
-    # ── 2. Resolve context ─────────────────────────────────────────────────────
-    city        = body.city or "Bucharest"
+    # ── 2. Resolve location ────────────────────────────────────────────────────
+    # Prefer explicit lat/lng from the new map-based picker.
+    # Fall back to the legacy city string for backward compat.
+    if body.lat is not None and body.lng is not None:
+        lat          = body.lat
+        lng          = body.lng
+        display_name = body.display_name or f"{lat:.2f},{lng:.2f}"
+    elif body.city:
+        city_coords  = CITY_COORDS.get(body.city, CITY_COORDS["Bucharest"])
+        lat, lng     = city_coords
+        display_name = body.city
+    else:
+        lat, lng     = CITY_COORDS["Bucharest"]
+        display_name = "Bucharest"
+
+    # Nearest canonical city — used for weather (API requires a city name)
+    weather_city = nearest_canonical_city(lat, lng, radius_km=float("inf"))
+
     target_date = body.date or str(DateType.today())
     hour        = body.hour if body.hour is not None else 12
     top_n       = body.top_n or 10
@@ -88,14 +105,12 @@ async def recommend(body: RecommendRequest):
         model_name = body.model or "lgbm"
 
     # ── 4. Fetch events ────────────────────────────────────────────────────────
-    if horizon == "week":
-        end_date = str(DateType.fromisoformat(target_date) + timedelta(days=7))
-        events = await get_events_for_range(city, target_date, end_date, hour)
-    elif horizon == "month":
-        end_date = str(DateType.fromisoformat(target_date) + timedelta(days=30))
-        events = await get_events_for_range(city, target_date, end_date, hour)
+    if horizon in ("week", "month"):
+        days     = 7 if horizon == "week" else 30
+        end_date = str(DateType.fromisoformat(target_date) + timedelta(days=days))
+        events   = await get_events_for_range(lat, lng, display_name, target_date, end_date, hour)
     else:
-        events = await get_events_for_date(city, target_date, hour)
+        events = await get_events_for_date(lat, lng, display_name, target_date, hour)
 
     # ── 5. Fetch weather (today/week only) ────────────────────────────────────
     weather_obj  = None
@@ -103,7 +118,7 @@ async def recommend(body: RecommendRequest):
 
     if horizon != "month":
         try:
-            weather_obj = await get_weather_forecast(city, target_date, hour)
+            weather_obj = await get_weather_forecast(weather_city, target_date, hour)
             if weather_obj:
                 weather_feat = weather_obj.to_feature_dict()
         except Exception as exc:
@@ -154,7 +169,7 @@ async def recommend(body: RecommendRequest):
 
     return RecommendResponse(
         user_id         = body.user_id,
-        city            = city,
+        city            = display_name,
         date            = target_date,
         model_used      = model_name,
         weather         = weather_ctx,
