@@ -80,6 +80,11 @@ export type Horizon = 'today' | 'week' | 'month'
 export interface RecommendRequest {
   user_id?: string
   user_profile?: UserProfile
+  // coordinate-based location (preferred)
+  lat?: number
+  lng?: number
+  display_name?: string
+  // legacy city string — kept for backward compat
   city?: string
   date?: string
   hour?: number

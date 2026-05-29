@@ -1,37 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 import { OceanBackground } from '@/components/OceanBackground'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WeatherWidget } from '@/components/WeatherWidget'
 import { EventCard } from '@/components/EventCard'
+import { LocationPicker, type PickedLocation } from '@/components/LocationPicker'
 import { useAuth } from '@/hooks/useAuth'
 import { recommendService } from '@/services/recommendService'
 import type { EventRecommendation, WeatherContext } from '@/types'
 
 /* ── Constants ────────────────────────────────────────────── */
 
-const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
-const CITY_KEY = 'wave_city'
-
-const CITIES: { name: string; coords: [number, number] }[] = [
-  { name: 'București',    coords: [26.10, 44.44] },
-  { name: 'Cluj-Napoca', coords: [23.60, 46.77] },
-  { name: 'Timișoara',   coords: [21.23, 45.75] },
-  { name: 'Iași',        coords: [27.60, 47.16] },
-  { name: 'Constanța',   coords: [28.65, 44.18] },
-  { name: 'Brașov',      coords: [25.61, 45.65] },
-  { name: 'Craiova',     coords: [23.80, 44.32] },
-  { name: 'Galați',      coords: [28.05, 45.44] },
-  { name: 'Oradea',      coords: [21.93, 47.06] },
-  { name: 'Ploiești',    coords: [26.02, 44.94] },
-  { name: 'Sibiu',       coords: [24.15, 45.80] },
-  { name: 'Târgu Mureș', coords: [24.56, 46.54] },
-  { name: 'Arad',        coords: [21.32, 46.18] },
-  { name: 'Bacău',       coords: [26.92, 46.57] },
-  { name: 'Pitești',     coords: [24.87, 44.86] },
-]
+const LOC_KEY = 'wave_location'
+const DEFAULT_LOC: PickedLocation = { lat: 44.44, lng: 26.10, displayName: 'București' }
 
 /* ── Grouping helpers ─────────────────────────────────────── */
 
@@ -52,7 +34,7 @@ function groupByWeek(events: EventRecommendation[]): [string, EventRecommendatio
   for (const e of events) {
     const d = new Date(e.event_date)
     const mon = new Date(d)
-    mon.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // Monday of that week
+    mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
     const key = `Week of ${mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(e)
@@ -115,244 +97,44 @@ function EventGroup({ label, events }: { label: string; events: EventRecommendat
   )
 }
 
-/* ── City modal ───────────────────────────────────────────── */
-
-function CityModal({
-  current,
-  onSelect,
-  onClose,
-}: {
-  current: string
-  onSelect: (c: string) => void
-  onClose: () => void
-}) {
-  const [search, setSearch] = useState('')
-  const [geoLoading, setGeoLoading] = useState(false)
-
-  const filtered = CITIES.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  function handleGeolocate() {
-    if (!navigator.geolocation) return
-    setGeoLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      ({ coords: { latitude: lat, longitude: lon } }) => {
-        let best = CITIES[0]
-        let bestDist = Infinity
-        for (const c of CITIES) {
-          const d = Math.hypot(c.coords[0] - lon, c.coords[1] - lat)
-          if (d < bestDist) { bestDist = d; best = c }
-        }
-        setGeoLoading(false)
-        onSelect(best.name)
-      },
-      () => setGeoLoading(false),
-    )
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(3,4,94,0.72)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        zIndex: 200,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px 16px',
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 16, scale: 0.97 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 560,
-          maxHeight: '85dvh', overflowY: 'auto',
-          background: 'var(--bg-card)', border: '1px solid var(--border-card)',
-          borderRadius: 20, padding: '24px',
-          backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontFamily: '"Syne", sans-serif', fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Select city
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.25rem', padding: '4px', lineHeight: 1 }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Geolocation button */}
-        <button
-          type="button"
-          onClick={handleGeolocate}
-          disabled={geoLoading}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            width: '100%', padding: '10px 14px', borderRadius: 10,
-            border: '1px solid var(--border-input)',
-            background: 'var(--bg-input)', color: 'var(--text-secondary)',
-            fontSize: '0.875rem', cursor: geoLoading ? 'not-allowed' : 'pointer',
-            marginBottom: 12, boxSizing: 'border-box',
-            opacity: geoLoading ? 0.6 : 1,
-          }}
-        >
-          <span>📍</span>
-          {geoLoading ? 'Detecting location…' : 'Use my location'}
-        </button>
-
-        {/* Text search */}
-        <input
-          type="text"
-          placeholder="Search city…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            width: '100%', padding: '10px 14px', borderRadius: 10,
-            border: '1px solid var(--border-input)',
-            background: 'var(--bg-input)', color: 'var(--text-primary)',
-            fontSize: '0.875rem', outline: 'none',
-            marginBottom: 16, boxSizing: 'border-box',
-          }}
-        />
-
-        {/* SVG map — only shown when not searching */}
-        {!search && (
-          <div style={{
-            borderRadius: 12, overflow: 'hidden',
-            marginBottom: 16,
-            background: 'rgba(0,80,120,0.12)',
-            border: '1px solid var(--border-input)',
-          }}>
-            <ComposableMap
-              projection="geoMercator"
-              projectionConfig={{ center: [25, 45.8], scale: 2800 }}
-              style={{ width: '100%', height: 220 }}
-            >
-              <Geographies geography={GEO_URL}>
-                {({ geographies }: { geographies: any[] }) =>
-                  geographies
-                    .filter((g: any) => g.properties.name === 'Romania')
-                    .map((geo: any) => (
-                      <Geography
-                        key={geo.rsmKey}
-                        geography={geo}
-                        fill="var(--bg-input)"
-                        stroke="var(--border-input)"
-                        strokeWidth={1}
-                        style={{
-                          default: { outline: 'none' },
-                          hover: { outline: 'none' },
-                          pressed: { outline: 'none' },
-                        }}
-                      />
-                    ))
-                }
-              </Geographies>
-
-              {CITIES.map(c => (
-                <Marker
-                  key={c.name}
-                  coordinates={c.coords}
-                  onClick={() => onSelect(c.name)}
-                >
-                  <circle
-                    r={c.name === current ? 7 : 5}
-                    fill={c.name === current ? 'var(--accent)' : 'var(--accent-light)'}
-                    stroke="#fff"
-                    strokeWidth={1.5}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <text
-                    textAnchor="middle"
-                    y={-10}
-                    style={{
-                      fontFamily: 'inherit',
-                      fontSize: 7,
-                      fill: 'var(--text-muted)',
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                    }}
-                  >
-                    {c.name}
-                  </text>
-                </Marker>
-              ))}
-            </ComposableMap>
-          </div>
-        )}
-
-        {/* City list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filtered.map(c => (
-            <button
-              key={c.name}
-              type="button"
-              onClick={() => onSelect(c.name)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 12px', borderRadius: 9,
-                border: c.name === current ? '1px solid var(--accent)' : '1px solid transparent',
-                background: c.name === current ? 'rgba(0,150,199,0.1)' : 'transparent',
-                color: c.name === current ? 'var(--accent-light)' : 'var(--text-secondary)',
-                fontSize: '0.875rem', cursor: 'pointer', textAlign: 'left',
-                fontWeight: c.name === current ? 600 : 400,
-                width: '100%',
-              }}
-            >
-              {c.name === current && <span style={{ fontSize: '0.75rem' }}>✓</span>}
-              {c.name}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
-  )
-}
-
 /* ── HomePage ─────────────────────────────────────────────── */
 
 export function HomePage() {
-  const { logout, hasProfile } = useAuth()
+  const { logout, hasProfile, user } = useAuth()
   const navigate = useNavigate()
 
-  const [city, setCity] = useState<string>(
-    () => localStorage.getItem(CITY_KEY) ?? 'București'
-  )
-  const [showCityModal, setShowCityModal] = useState(false)
+  const [location, setLocation] = useState<PickedLocation>(() => {
+    try {
+      const saved = localStorage.getItem(LOC_KEY)
+      return saved ? JSON.parse(saved) : DEFAULT_LOC
+    } catch {
+      return DEFAULT_LOC
+    }
+  })
+  const [showPicker, setShowPicker] = useState(false)
   const [showBanner, setShowBanner] = useState(true)
 
   const [weather, setWeather] = useState<WeatherContext | null>(null)
   const [todayEvents, setTodayEvents] = useState<EventRecommendation[]>([])
-  const [weekEvents, setWeekEvents] = useState<EventRecommendation[]>([])
+  const [weekEvents, setWeekEvents]   = useState<EventRecommendation[]>([])
   const [monthEvents, setMonthEvents] = useState<EventRecommendation[]>([])
 
   const [todayLoading, setTodayLoading] = useState(true)
   const [weekLoading,  setWeekLoading]  = useState(true)
   const [monthLoading, setMonthLoading] = useState(true)
 
-  const fetchAll = useCallback(async (c: string) => {
+  const fetchAll = useCallback(async (loc: PickedLocation) => {
     setTodayLoading(true)
     setWeekLoading(true)
     setMonthLoading(true)
 
+    const uid = user?.user_id ?? undefined
+    const base = { lat: loc.lat, lng: loc.lng, display_name: loc.displayName, user_id: uid }
+
     const [todayRes, weekRes, monthRes] = await Promise.allSettled([
-      recommendService.getRecommendations({ city: c, horizon: 'today', top_n: 5 }),
-      recommendService.getRecommendations({ city: c, horizon: 'week',  top_n: 15 }),
-      recommendService.getRecommendations({ city: c, horizon: 'month', top_n: 15 }),
+      recommendService.getRecommendations({ ...base, horizon: 'today', top_n: 5  }),
+      recommendService.getRecommendations({ ...base, horizon: 'week',  top_n: 15 }),
+      recommendService.getRecommendations({ ...base, horizon: 'month', top_n: 15 }),
     ])
 
     if (todayRes.status === 'fulfilled') {
@@ -361,21 +143,21 @@ export function HomePage() {
     }
     setTodayLoading(false)
 
-    if (weekRes.status === 'fulfilled') setWeekEvents(weekRes.value.recommendations)
+    if (weekRes.status === 'fulfilled')  setWeekEvents(weekRes.value.recommendations)
     setWeekLoading(false)
 
     if (monthRes.status === 'fulfilled') setMonthEvents(monthRes.value.recommendations)
     setMonthLoading(false)
-  }, [])
+  }, [user?.user_id])
 
   useEffect(() => {
-    localStorage.setItem(CITY_KEY, city)
-    fetchAll(city)
-  }, [city, fetchAll])
+    localStorage.setItem(LOC_KEY, JSON.stringify(location))
+    fetchAll(location)
+  }, [location, fetchAll])
 
-  function selectCity(c: string) {
-    setCity(c)
-    setShowCityModal(false)
+  function selectLocation(loc: PickedLocation) {
+    setLocation(loc)
+    setShowPicker(false)
   }
 
   const weekGroups  = groupByDate(weekEvents)
@@ -475,7 +257,7 @@ export function HomePage() {
           )}
         </AnimatePresence>
 
-        {/* ── Weather + city picker row ── */}
+        {/* ── Weather + location picker row ── */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 10, marginBottom: 4 }}>
           <div style={{ flex: 1 }}>
             {weather ? (
@@ -491,7 +273,7 @@ export function HomePage() {
 
           <motion.button
             type="button"
-            onClick={() => setShowCityModal(true)}
+            onClick={() => setShowPicker(true)}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 22 }}
@@ -512,13 +294,13 @@ export function HomePage() {
               maxWidth: 68, textAlign: 'center',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
-              {city}
+              {location.displayName}
             </span>
           </motion.button>
         </div>
 
-        {/* ── Today in {city} ── */}
-        <SectionHeader title={`Today in ${city}`} />
+        {/* ── Today in {location} ── */}
+        <SectionHeader title={`Today in ${location.displayName}`} />
         {todayLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[...Array(5)].map((_, i) => <CardSkeleton key={i} />)}
@@ -566,13 +348,14 @@ export function HomePage() {
         )}
       </div>
 
-      {/* ── City modal ── */}
+      {/* ── Location picker modal ── */}
       <AnimatePresence>
-        {showCityModal && (
-          <CityModal
-            current={city}
-            onSelect={selectCity}
-            onClose={() => setShowCityModal(false)}
+        {showPicker && (
+          <LocationPicker
+            onLocationSelect={selectLocation}
+            onClose={() => setShowPicker(false)}
+            initialLat={location.lat}
+            initialLng={location.lng}
           />
         )}
       </AnimatePresence>
