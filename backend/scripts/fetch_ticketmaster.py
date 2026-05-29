@@ -286,13 +286,45 @@ def _fetch_city(
     return events
 
 
+def _prune_past_events() -> int:
+    """Delete Ticketmaster rows whose event_date is before today from Supabase.
+
+    Keeps the dataset bounded — without pruning, old events accumulate across
+    weekly fetch runs even though the upsert deduplicates future events.
+    Only touches rows with source='ticketmaster' so generated and iabilet rows
+    are unaffected.
+
+    Returns:
+        Number of rows deleted, or 0 on failure.
+    """
+    today = date.today().isoformat()
+    try:
+        from app.core.database import get_supabase_admin_client  # noqa: PLC0415
+        client = get_supabase_admin_client()
+        resp = (
+            client.table("events")
+            .delete()
+            .eq("source", "ticketmaster")
+            .lt("event_date", today)
+            .execute()
+        )
+        deleted = len(resp.data) if resp.data else 0
+        print(f"[ticketmaster] ✓ Pruned {deleted} past event(s) (before {today}).")
+        return deleted
+    except Exception as exc:
+        print(f"[ticketmaster] WARN: Pruning failed (non-fatal): {exc}")
+        return 0
+
+
 def fetch_ticketmaster(cities: list[str] | None = None) -> dict:
     """
     Fetch events from Ticketmaster API for the given cities.
 
     If cities is None, fetches all cities in TICKETMASTER_CITY_KEYWORDS.
-    Events are upserted into Supabase city-by-city so a failure in one city
-    does not prevent others from being persisted.
+    Past events are pruned from Supabase before fetching so the dataset stays
+    bounded (~15 cities × ~250 events = ~3 750 rows max at any time).
+    Events are upserted city-by-city so a failure in one city does not prevent
+    others from being persisted.
 
     Args:
         cities: Optional list of canonical WAVE city names to fetch.
@@ -304,6 +336,7 @@ def fetch_ticketmaster(cities: list[str] | None = None) -> dict:
             "fetched"  — total valid events parsed across all cities
             "inserted" — events successfully upserted into Supabase
             "skipped"  — events that failed to upsert
+            "pruned"   — past events deleted before the fetch run
     """
     api_key = os.environ.get("TICKETMASTER_API_KEY", "")
     if not api_key:
@@ -323,11 +356,13 @@ def fetch_ticketmaster(cities: list[str] | None = None) -> dict:
         print(f"[ticketmaster] WARN: unknown cities will be skipped: {unknown}")
         target_cities = [c for c in target_cities if c in TICKETMASTER_CITY_KEYWORDS]
 
+    pruned = _prune_past_events()
+
     now = datetime.utcnow()
     start_dt = now.strftime("%Y-%m-%dT00:00:00Z")
     end_dt   = (now + timedelta(days=60)).strftime("%Y-%m-%dT00:00:00Z")
 
-    totals: dict[str, int] = {"fetched": 0, "inserted": 0, "skipped": 0}
+    totals: dict[str, int] = {"fetched": 0, "inserted": 0, "skipped": 0, "pruned": pruned}
 
     for city in target_cities:
         print(f"\n[ticketmaster] ── Fetching {city} ({start_dt} → {end_dt}) ──")
@@ -348,6 +383,7 @@ def fetch_ticketmaster(cities: list[str] | None = None) -> dict:
 
     print(
         f"\n[ticketmaster] Done. "
+        f"pruned={totals['pruned']} "
         f"fetched={totals['fetched']} "
         f"inserted={totals['inserted']} "
         f"skipped={totals['skipped']}"
