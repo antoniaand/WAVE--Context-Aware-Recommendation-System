@@ -100,7 +100,8 @@ DEFAULT_PROFILE = {
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["event_month"] = pd.to_datetime(df["event_date"]).dt.month
+    parsed = pd.to_datetime(df.get("event_date"), errors="coerce")
+    df["event_month"] = parsed.dt.month.fillna(6).astype(int)
     if "preferred_event_types" in df.columns:
         df["event_in_preferred"] = df.apply(
             lambda row: int(str(row["event_type"]) in str(row["preferred_event_types"])),
@@ -116,7 +117,12 @@ def encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
     for col in CATEGORICAL_COLS:
         if col not in df.columns:
             continue
-        df[col] = df[col].astype(str).map(LABEL_MAPS.get(col, {})).fillna(-1).astype(int)
+        mapped = df[col].astype(str).map(LABEL_MAPS.get(col, {}))
+        n_unmapped = int(mapped.isna().sum())
+        if n_unmapped > 0:
+            bad = df[col][mapped.isna()].unique().tolist()
+            logger.warning("Column '%s': %d unmapped value(s) %s → -1", col, n_unmapped, bad)
+        df[col] = mapped.fillna(-1).astype(int)
     return df
 
 
@@ -226,7 +232,10 @@ def predict_attended_probability(
         results.append({
             "event_type":   event["event_type"],
             "event_name":   event.get("event_name"),
-            "location":     event["location"],
+            # display_location is set on generated events when the user picked an
+            # arbitrary map point; it holds the Nominatim display name while
+            # event["location"] holds the nearest canonical city for ML encoding.
+            "location":     event.get("display_location") or event["location"],
             "venue":        event.get("venue"),
             "event_date":   event["event_date"],
             "attended_prob": round(float(probs[i]), 4),
