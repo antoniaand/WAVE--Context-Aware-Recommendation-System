@@ -1,5 +1,7 @@
 Model,CV F1 Mean,CV F1 Std,Test F1,Delta,Status
-RF Baseline,0.9061,0.0192,0.885,0.0211,Low risk
-RF Contextual,0.9188,0.0198,0.9049,0.0139,No overfitting
-LGBM Contextual,0.945,0.0158,0.9325,0.0125,No overfitting
-XGB Contextual,0.9435,0.0216,0.9334,0.0101,No overfitting
+LR Baseline,0.8072,0.0342,0.7806,0.0266,Low risk
+RF Baseline,0.905,0.0199,0.885,0.02,No overfitting
+LR Contextual,0.8083,0.0332,0.7787,0.0296,Low risk
+RF Contextual,0.9209,0.0186,0.9049,0.016,No overfitting
+LGBM Contextual,0.9404,0.0182,0.9333,0.0071,No overfitting
+XGB Contextual,0.9461,0.0162,0.9321,0.014,No overfitting
